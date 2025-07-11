@@ -1,0 +1,112 @@
+{
+  "common_medications": [
+    {
+      "name": "Acetaminophen",
+      "generic_name": "Paracetamol",
+      "brand_names": ["Tylenol", "Panadol", "Calpol"],
+      "category": "Pain Relief",
+      "common_uses": ["Pain relief", "Fever reduction"],
+      "dosage_forms": ["Tablet", "Liquid", "Suppository"]
+    },
+    {
+      "name": "Ibuprofen",
+      "generic_name": "Ibuprofen",
+      "brand_names": ["Advil", "Motrin", "Nurofen"],
+      "category": "Pain Relief",
+      "common_uses": ["Pain relief", "Inflammation", "Fever reduction"],
+      "dosage_forms": ["Tablet", "Capsule", "Liquid", "Gel"]
+    },
+    {
+      "name": "Aspirin",
+      "generic_name": "Acetylsalicylic acid",
+      "brand_names": ["Bayer", "Bufferin", "Excedrin"],
+      "category": "Pain Relief",
+      "common_uses": ["Pain relief", "Heart protection", "Stroke prevention"],
+      "dosage_forms": ["Tablet", "Chewable tablet"]
+    },
+    {
+      "name": "Lisinopril",
+      "generic_name": "Lisinopril",
+      "brand_names": ["Prinivil", "Zestril"],
+      "category": "Blood Pressure",
+      "common_uses": ["High blood pressure", "Heart failure"],
+      "dosage_forms": ["Tablet"]
+    },
+    {
+      "name": "Metformin",
+      "generic_name": "Metformin",
+      "brand_names": ["Glucophage", "Fortamet"],
+      "category": "Diabetes",
+      "common_uses": ["Type 2 diabetes", "PCOS"],
+      "dosage_forms": ["Tablet", "Extended-release tablet"]
+    },
+    {
+      "name": "Atorvastatin",
+      "generic_name": "Atorvastatin",
+      "brand_names": ["Lipitor"],
+      "category": "Cholesterol",
+      "common_uses": ["High cholesterol", "Heart disease prevention"],
+      "dosage_forms": ["Tablet"]
+    },
+    {
+      "name": "Omeprazole",
+      "generic_name": "Omeprazole",
+      "brand_names": ["Prilosec", "Losec"],
+      "category": "Digestive",
+      "common_uses": ["Acid reflux", "Stomach ulcers", "GERD"],
+      "dosage_forms": ["Capsule", "Tablet"]
+    },
+    {
+      "name": "Sertraline",
+      "generic_name": "Sertraline",
+      "brand_names": ["Zoloft"],
+      "category": "Mental Health",
+      "common_uses": ["Depression", "Anxiety", "PTSD"],
+      "dosage_forms": ["Tablet", "Liquid"]
+    },
+    {
+      "name": "Levothyroxine",
+      "generic_name": "Levothyroxine",
+      "brand_names": ["Synthroid", "Levoxyl"],
+      "category": "Thyroid",
+      "common_uses": ["Hypothyroidism", "Thyroid hormone replacement"],
+      "dosage_forms": ["Tablet"]
+    },
+    {
+      "name": "Amlodipine",
+      "generic_name": "Amlodipine",
+      "brand_names": ["Norvasc"],
+      "category": "Blood Pressure",
+      "common_uses": ["High blood pressure", "Chest pain"],
+      "dosage_forms": ["Tablet"]
+    }
+  ],
+  "medication_categories": [
+    "Pain Relief",
+    "Blood Pressure",
+    "Diabetes",
+    "Cholesterol",
+    "Digestive",
+    "Mental Health",
+    "Thyroid",
+    "Antibiotics",
+    "Heart Medication",
+    "Respiratory",
+    "Allergy",
+    "Skin Conditions",
+    "Vitamins & Supplements"
+  ],
+  "dosage_forms": [
+    "Tablet",
+    "Capsule",
+    "Liquid",
+    "Injection",
+    "Cream",
+    "Gel",
+    "Patch",
+    "Inhaler",
+    "Drops",
+    "Suppository",
+    "Spray"
+  ]
+}
