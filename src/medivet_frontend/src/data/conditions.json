@@ -1,0 +1,123 @@
+{
+  "common_conditions": [
+    {
+      "name": "Hypertension",
+      "common_name": "High Blood Pressure",
+      "category": "Cardiovascular",
+      "icd10": "I10",
+      "symptoms": ["Headaches", "Shortness of breath", "Nosebleeds"],
+      "risk_factors": ["Age", "Family history", "Obesity", "Smoking"]
+    },
+    {
+      "name": "Type 2 Diabetes Mellitus",
+      "common_name": "Type 2 Diabetes",
+      "category": "Endocrine",
+      "icd10": "E11",
+      "symptoms": ["Increased thirst", "Frequent urination", "Fatigue", "Blurred vision"],
+      "risk_factors": ["Obesity", "Age", "Family history", "Sedentary lifestyle"]
+    },
+    {
+      "name": "Hyperlipidemia",
+      "common_name": "High Cholesterol",
+      "category": "Cardiovascular",
+      "icd10": "E78",
+      "symptoms": ["Usually asymptomatic"],
+      "risk_factors": ["Diet", "Genetics", "Age", "Smoking"]
+    },
+    {
+      "name": "Gastroesophageal Reflux Disease",
+      "common_name": "GERD",
+      "category": "Digestive",
+      "icd10": "K21",
+      "symptoms": ["Heartburn", "Acid reflux", "Chest pain", "Difficulty swallowing"],
+      "risk_factors": ["Obesity", "Pregnancy", "Smoking", "Certain foods"]
+    },
+    {
+      "name": "Major Depressive Disorder",
+      "common_name": "Depression",
+      "category": "Mental Health",
+      "icd10": "F32",
+      "symptoms": ["Persistent sadness", "Loss of interest", "Fatigue", "Sleep changes"],
+      "risk_factors": ["Family history", "Trauma", "Medical conditions", "Substance abuse"]
+    },
+    {
+      "name": "Generalized Anxiety Disorder",
+      "common_name": "Anxiety",
+      "category": "Mental Health",
+      "icd10": "F41.1",
+      "symptoms": ["Excessive worry", "Restlessness", "Fatigue", "Difficulty concentrating"],
+      "risk_factors": ["Genetics", "Brain chemistry", "Personality", "Life events"]
+    },
+    {
+      "name": "Hypothyroidism",
+      "common_name": "Underactive Thyroid",
+      "category": "Endocrine",
+      "icd10": "E03",
+      "symptoms": ["Fatigue", "Weight gain", "Cold sensitivity", "Dry skin"],
+      "risk_factors": ["Age", "Gender", "Family history", "Autoimmune disease"]
+    },
+    {
+      "name": "Osteoarthritis",
+      "common_name": "Arthritis",
+      "category": "Musculoskeletal",
+      "icd10": "M15-M19",
+      "symptoms": ["Joint pain", "Stiffness", "Swelling", "Reduced range of motion"],
+      "risk_factors": ["Age", "Obesity", "Joint injury", "Genetics"]
+    },
+    {
+      "name": "Asthma",
+      "common_name": "Asthma",
+      "category": "Respiratory",
+      "icd10": "J45",
+      "symptoms": ["Wheezing", "Shortness of breath", "Chest tightness", "Coughing"],
+      "risk_factors": ["Allergies", "Family history", "Environmental factors", "Respiratory infections"]
+    },
+    {
+      "name": "Chronic Obstructive Pulmonary Disease",
+      "common_name": "COPD",
+      "category": "Respiratory",
+      "icd10": "J44",
+      "symptoms": ["Chronic cough", "Shortness of breath", "Wheezing", "Chest tightness"],
+      "risk_factors": ["Smoking", "Air pollution", "Occupational exposure", "Genetics"]
+    }
+  ],
+  "condition_categories": [
+    "Cardiovascular",
+    "Endocrine",
+    "Digestive",
+    "Mental Health",
+    "Musculoskeletal",
+    "Respiratory",
+    "Neurological",
+    "Dermatological",
+    "Genitourinary",
+    "Infectious Disease",
+    "Oncology",
+    "Ophthalmology",
+    "ENT (Ear, Nose, Throat)",
+    "Gynecological",
+    "Pediatric"
+  ],
+  "common_symptoms": [
+    "Fever",
+    "Headache",
+    "Fatigue",
+    "Nausea",
+    "Vomiting",
+    "Diarrhea",
+    "Constipation",
+    "Chest pain",
+    "Shortness of breath",
+    "Dizziness",
+    "Joint pain",
+    "Muscle pain",
+    "Rash",
+    "Cough",
+    "Sore throat",
+    "Abdominal pain",
+    "Back pain",
+    "Sleep problems",
+    "Anxiety",
+    "Depression"
+  ]
+}

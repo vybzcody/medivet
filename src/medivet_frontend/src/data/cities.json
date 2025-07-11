@@ -1,0 +1,60 @@
+{
+  "countries": [
+    {
+      "name": "United States",
+      "code": "US",
+      "cities": [
+        "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
+        "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
+        "Fort Worth", "Columbus", "Charlotte", "San Francisco", "Indianapolis",
+        "Seattle", "Denver", "Washington", "Boston", "El Paso", "Nashville",
+        "Detroit", "Oklahoma City", "Portland", "Las Vegas", "Memphis", "Louisville",
+        "Baltimore", "Milwaukee", "Albuquerque", "Tucson", "Fresno", "Sacramento",
+        "Kansas City", "Mesa", "Atlanta", "Colorado Springs", "Omaha", "Raleigh",
+        "Miami", "Long Beach", "Virginia Beach", "Oakland", "Minneapolis", "Tampa",
+        "Tulsa", "Arlington", "New Orleans"
+      ]
+    },
+    {
+      "name": "Canada",
+      "code": "CA",
+      "cities": [
+        "Toronto", "Montreal", "Vancouver", "Calgary", "Edmonton", "Ottawa",
+        "Winnipeg", "Quebec City", "Hamilton", "Kitchener", "London", "Victoria",
+        "Halifax", "Oshawa", "Windsor", "Saskatoon", "St. Catharines", "Regina",
+        "Sherbrooke", "Barrie", "Kelowna", "Abbotsford", "Kingston", "Sudbury",
+        "Saguenay", "Trois-Rivières", "Guelph", "Cambridge", "Whitby", "Coquitlam"
+      ]
+    },
+    {
+      "name": "United Kingdom",
+      "code": "GB",
+      "cities": [
+        "London", "Birmingham", "Manchester", "Glasgow", "Liverpool", "Leeds",
+        "Sheffield", "Edinburgh", "Bristol", "Cardiff", "Leicester", "Coventry",
+        "Bradford", "Belfast", "Nottingham", "Kingston upon Hull", "Newcastle",
+        "Stoke-on-Trent", "Southampton", "Derby", "Portsmouth", "Brighton",
+        "Plymouth", "Northampton", "Reading", "Luton", "Wolverhampton",
+        "Bolton", "Bournemouth", "Norwich", "Swindon", "Swansea", "Southend"
+      ]
+    },
+    {
+      "name": "Australia",
+      "code": "AU",
+      "cities": [
+        "Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast",
+        "Newcastle", "Canberra", "Sunshine Coast", "Wollongong", "Logan City",
+        "Geelong", "Hobart", "Townsville", "Cairns", "Darwin", "Toowoomba",
+        "Ballarat", "Bendigo", "Albury", "Launceston", "Mackay", "Rockhampton",
+        "Bunbury", "Bundaberg", "Coffs Harbour", "Wagga Wagga", "Hervey Bay"
+      ]
+    }
+  ],
+  "common_locations": [
+    "Home", "Work", "School", "Hospital", "Clinic", "Pharmacy", "Gym",
+    "Restaurant", "Travel", "Vacation", "Emergency Room", "Urgent Care",
+    "Doctor's Office", "Laboratory", "Imaging Center", "Physical Therapy",
+    "Mental Health Clinic", "Rehabilitation Center", "Nursing Home",
+    "Assisted Living", "Other"
+  ]
+}

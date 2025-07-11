@@ -1,0 +1,76 @@
+{
+  "medical_specializations": [
+    {
+      "name": "Family Medicine",
+      "description": "Primary care for patients of all ages",
+      "common_conditions": ["Hypertension", "Diabetes", "Common cold", "Annual checkups"]
+    },
+    {
+      "name": "Internal Medicine",
+      "description": "Adult primary care and complex medical conditions",
+      "common_conditions": ["Diabetes", "Heart disease", "Kidney disease", "Autoimmune disorders"]
+    },
+    {
+      "name": "Cardiology",
+      "description": "Heart and cardiovascular system disorders",
+      "common_conditions": ["Heart disease", "Arrhythmia", "Heart failure", "High blood pressure"]
+    },
+    {
+      "name": "Endocrinology",
+      "description": "Hormone and metabolic disorders",
+      "common_conditions": ["Diabetes", "Thyroid disorders", "Adrenal disorders", "Osteoporosis"]
+    },
+    {
+      "name": "Gastroenterology",
+      "description": "Digestive system disorders",
+      "common_conditions": ["GERD", "IBS", "Crohn's disease", "Liver disease"]
+    },
+    {
+      "name": "Psychiatry",
+      "description": "Mental health disorders",
+      "common_conditions": ["Depression", "Anxiety", "Bipolar disorder", "ADHD"]
+    },
+    {
+      "name": "Dermatology",
+      "description": "Skin, hair, and nail disorders",
+      "common_conditions": ["Acne", "Eczema", "Psoriasis", "Skin cancer"]
+    },
+    {
+      "name": "Orthopedics",
+      "description": "Musculoskeletal system disorders",
+      "common_conditions": ["Fractures", "Arthritis", "Sports injuries", "Back pain"]
+    },
+    {
+      "name": "Pulmonology",
+      "description": "Respiratory system disorders",
+      "common_conditions": ["Asthma", "COPD", "Pneumonia", "Sleep apnea"]
+    },
+    {
+      "name": "Neurology",
+      "description": "Nervous system disorders",
+      "common_conditions": ["Migraines", "Epilepsy", "Stroke", "Parkinson's disease"]
+    },
+    {
+      "name": "Obstetrics and Gynecology",
+      "description": "Women's reproductive health",
+      "common_conditions": ["Pregnancy care", "Menstrual disorders", "Menopause", "PCOS"]
+    },
+    {
+      "name": "Pediatrics",
+      "description": "Medical care for infants, children, and adolescents",
+      "common_conditions": ["Vaccinations", "Growth disorders", "Childhood infections", "ADHD"]
+    }
+  ],
+  "facility_types": [
+    "Hospital",
+    "Clinic",
+    "Private Practice",
+    "Urgent Care",
+    "Specialty Center",
+    "Community Health Center",
+    "Academic Medical Center",
+    "Rehabilitation Center",
+    "Outpatient Surgery Center",
+    "Diagnostic Center"
+  ]
+}
