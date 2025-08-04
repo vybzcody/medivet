@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/hooks/useAccessControl.ts
 import { useState, useCallback } from 'react';
 import { medivet_backend } from '../../../declarations/medivet_backend';
 import useAuthStore from '../stores/useAuthStore';
