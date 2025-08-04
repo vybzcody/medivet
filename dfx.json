@@ -15,6 +15,11 @@
       "main": "src/medivet_backend/main.mo",
       "type": "motoko"
     },
+    "backend": {
+      "main": "src/vault/app.mo",
+      "type": "motoko",
+      "args": "--enhanced-orthogonal-persistence"
+    },
     "medivet_frontend": {
       "dependencies": [
         "medivet_backend"
@@ -29,7 +34,7 @@
   "defaults": {
     "build": {
       "args": "",
-      "packtool": ""
+      "packtool": "mops sources"
     }
   },
   "output_env_file": ".env",
