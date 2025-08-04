@@ -22,7 +22,8 @@
     },
     "medivet_frontend": {
       "dependencies": [
-        "medivet_backend"
+        "medivet_backend",
+        "vault"
       ],
       "source": [
         "src/medivet_frontend/dist"
