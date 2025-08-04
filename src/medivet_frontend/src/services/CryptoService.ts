@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/services/CryptoService.ts
 import { get, set } from 'idb-keyval';
 import * as vetkd from "@dfinity/vetkeys";
 import { createAuthenticatedActor } from './actorService';

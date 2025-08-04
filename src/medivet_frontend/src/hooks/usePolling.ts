@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/hooks/usePolling.ts
 import { useEffect, useCallback, useState } from 'react';
 import PollingService from '../services/pollingService';
 import useAuthStore from '../stores/useAuthStore';

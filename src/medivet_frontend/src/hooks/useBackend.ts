@@ -1,5 +1,3 @@
-// src/medivet_frontend/src/hooks/useBackend.ts
-
 import { useState, useCallback } from 'react';
 import { medivet_backend } from '../../../declarations/medivet_backend';
 import { Principal } from '@dfinity/principal';

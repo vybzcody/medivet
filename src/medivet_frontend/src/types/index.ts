@@ -1,5 +1,3 @@
-// src/medivet_frontend/src/types/index.ts
-
 import { Principal } from '@dfinity/principal';
 
 // Basic types
@@ -111,11 +109,6 @@ export interface HealthRecord {
 export const PermissionPresets = {
   VIEW_ONLY: [
     PermissionType.READ_BASIC_INFO,
-    PermissionType.READ_MEDICAL_HISTORY,
-    PermissionType.READ_MEDICATIONS,
-    PermissionType.READ_ALLERGIES,
-    PermissionType.READ_LAB_RESULTS,
-    PermissionType.READ_IMAGING
   ],
   FULL_ACCESS: [
     PermissionType.READ_BASIC_INFO,

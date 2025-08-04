@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/services/actorService.ts
 import { Actor, Identity, HttpAgent } from '@dfinity/agent';
 import { idlFactory } from '../../../declarations/medivet_backend/medivet_backend.did.js';
 
