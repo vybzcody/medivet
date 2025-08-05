@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/hooks/useCrypto.ts
 import { useState, useCallback } from 'react';
 import { CryptoService } from '../services/CryptoService';
 import useAuthStore from '../stores/useAuthStore';

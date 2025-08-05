@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/stores/useAttachmentStore.ts
 import { create } from 'zustand';
 import useAuthStore from './useAuthStore';
 import { createAuthenticatedActor } from '../services/actorService';

@@ -1,4 +1,3 @@
-// src/medivet_frontend/src/stores/useHealthRecordStore.ts
 import { create } from 'zustand';
 import { HealthRecord } from '../types';
 import useAuthStore from './useAuthStore';

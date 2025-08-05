@@ -34,8 +34,6 @@ const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     set({ isLoading: true, error: null });
     try {
-      
-    
       const authClient = await AuthClient.create();
       
       if (await authClient.isAuthenticated()) {

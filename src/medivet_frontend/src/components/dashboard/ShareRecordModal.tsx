@@ -21,7 +21,7 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
   const [customPermissions, setCustomPermissions] = useState(false);
   const [existingPermission, setExistingPermission] = useState<UserPermission | null>(null);
   const [isUpdateMode, setIsUpdateMode] = useState(false);
-  
+
   const { grantAccess, grantSpecificAccess } = useHealthRecordStore();
   const { showSuccess, showError, showWarning } = useToast();
 
@@ -32,19 +32,19 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
       if (existing) {
         setExistingPermission(existing);
         setIsUpdateMode(true);
-        
+
         // Pre-populate form with existing permissions
         setSelectedPermissions([...existing.permissions]);
         setCustomPermissions(true);
         setSelectedPreset('CUSTOM');
-        
+
         // Set expiry date if exists
         if (existing.expires_at) {
           const expiryMs = Number(existing.expires_at) / 1000000; // Convert from nanoseconds
           const expiryDateStr = new Date(expiryMs).toISOString().split('T')[0];
           setExpiryDate(expiryDateStr);
         }
-        
+
         showWarning(
           'Existing Permissions Found',
           `This user already has permissions for this record. You can update them.`,
@@ -97,7 +97,7 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!record || !userPrincipal.trim()) {
       setShareError('Please enter a valid user principal');
       return;
@@ -115,19 +115,19 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
     try {
       // Use the new granular permission system
       await grantSpecificAccess(
-        record.id, 
-        userPrincipal.trim(), 
+        record.id,
+        userPrincipal.trim(),
         selectedPermissions,
         expiryDate || undefined
       );
-      
+
       // Show success toast
       const actionText = isUpdateMode ? 'updated' : 'granted';
       showSuccess(
         `Permissions ${actionText} successfully!`,
         `${userPrincipal.trim()} now has ${selectedPermissions.length} permission(s) for this record.`
       );
-      
+
       // Reset form
       setUserPrincipal('');
       setSelectedPermissions([...PermissionPresets.VIEW_ONLY]);
@@ -136,12 +136,12 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
       setCustomPermissions(false);
       setExistingPermission(null);
       setIsUpdateMode(false);
-      
+
       // Close modal
       onClose();
     } catch (error: any) {
       console.error('Error sharing record:', error);
-      
+
       // Show error toast with specific handling for delegation expiry
       if (error.message?.includes('delegation has expired') || error.message?.includes('Invalid delegation expiry')) {
         showError(
@@ -156,7 +156,7 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
           8000
         );
       }
-      
+
       setShareError(error.message || 'Failed to share record');
     } finally {
       setIsSharing(false);
@@ -244,50 +244,46 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
                   <Shield className="inline h-4 w-4 mr-1" />
                   Access Permissions
                 </label>
-                
+
                 {/* Permission Presets */}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <button
                     type="button"
                     onClick={() => handlePresetChange('VIEW_ONLY')}
-                    className={`p-2 text-sm rounded-md border transition-colors ${
-                      selectedPreset === 'VIEW_ONLY'
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'VIEW_ONLY'
                         ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     View Only
                   </button>
                   <button
                     type="button"
                     onClick={() => handlePresetChange('FULL_ACCESS')}
-                    className={`p-2 text-sm rounded-md border transition-colors ${
-                      selectedPreset === 'FULL_ACCESS'
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'FULL_ACCESS'
                         ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     Full Access
                   </button>
                   <button
                     type="button"
                     onClick={() => handlePresetChange('EMERGENCY_CONTACT')}
-                    className={`p-2 text-sm rounded-md border transition-colors ${
-                      selectedPreset === 'EMERGENCY_CONTACT'
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'EMERGENCY_CONTACT'
                         ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     Emergency
                   </button>
                   <button
                     type="button"
                     onClick={() => handlePresetChange('CUSTOM')}
-                    className={`p-2 text-sm rounded-md border transition-colors ${
-                      selectedPreset === 'CUSTOM'
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'CUSTOM'
                         ? 'bg-blue-50 border-blue-300 text-blue-700'
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     Custom
                   </button>
@@ -381,14 +377,13 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
               <button
                 type="submit"
                 disabled={isSharing || !userPrincipal.trim()}
-                className={`flex-1 px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isUpdateMode 
-                    ? 'bg-orange-600 hover:bg-orange-700' 
+                className={`flex-1 px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isUpdateMode
+                    ? 'bg-orange-600 hover:bg-orange-700'
                     : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+                  }`}
               >
-                {isSharing 
-                  ? (isUpdateMode ? 'Updating...' : 'Sharing...') 
+                {isSharing
+                  ? (isUpdateMode ? 'Updating...' : 'Sharing...')
                   : (isUpdateMode ? 'Update Permissions' : 'Share Record')
                 }
               </button>
