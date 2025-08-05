@@ -1369,6 +1369,7 @@ shared ({ caller = initializer }) actor class () {
       Nat.equal,
       Hash.hash,
     );
+
     stable_accessLogsByRecord := [];
 
     accessLogsByUser := Map.fromIter<PrincipalName, List.List<Nat>>(
