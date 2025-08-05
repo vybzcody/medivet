@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import useProfileStore from '../../stores/useProfileStore';
 import useAuthStore from '../../stores/useAuthStore';
 import { PatientProfile } from '../../types';
@@ -26,6 +28,7 @@ const PatientOnboarding: React.FC<PatientOnboardingProps> = ({ onComplete }) => 
     currentMedications: '',
   });
   
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedMedications, setSelectedMedications] = useState<string[]>([]);
@@ -69,6 +72,19 @@ const PatientOnboarding: React.FC<PatientOnboardingProps> = ({ onComplete }) => 
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
+  };
+  
+  const handleDateChange = (date: Date | null) => {
+    setDateOfBirth(date);
+    if (date) {
+      setFormData(prev => ({ ...prev, dateOfBirth: date.toISOString().split('T')[0] }));
+      // Clear validation error when a valid date is selected
+      if (validationErrors.dateOfBirth) {
+        setValidationErrors(prev => ({ ...prev, dateOfBirth: '' }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, dateOfBirth: '' }));
+    }
   };
   
   const handleConditionAdd = () => {
@@ -232,15 +248,17 @@ const PatientOnboarding: React.FC<PatientOnboardingProps> = ({ onComplete }) => 
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Date of Birth <span className="text-red-500">*</span>
             </label>
-            <input
-              type="date"
-              name="dateOfBirth"
-              value={formData.dateOfBirth}
-              onChange={handleChange}
-              required
+            <DatePicker
+              selected={dateOfBirth}
+              onChange={handleDateChange}
+              dateFormat="yyyy-MM-dd"
               className={`w-full p-2 border rounded-md ${
                 validationErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'
               }`}
+              placeholderText="YYYY-MM-DD"
+              maxDate={new Date()}
+              showYearDropdown
+              dropdownMode="select"
             />
             {validationErrors.dateOfBirth && (
               <p className="text-red-500 text-sm mt-1">{validationErrors.dateOfBirth}</p>

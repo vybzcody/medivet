@@ -85,6 +85,7 @@ export const validateDate = (date: string, fieldName: string = 'Date'): Validati
   
   // Check if date is not in the future (for birth dates, etc.)
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   if (dateObj > today) {
     return { isValid: false, error: `${fieldName} cannot be in the future` };
   }
@@ -94,6 +95,27 @@ export const validateDate = (date: string, fieldName: string = 'Date'): Validati
   minDate.setFullYear(minDate.getFullYear() - 150);
   if (dateObj < minDate) {
     return { isValid: false, error: `Please enter a valid ${fieldName.toLowerCase()}` };
+  }
+  
+  return { isValid: true, sanitized: date };
+};
+
+// Future date validation
+export const validateFutureDate = (date: string, fieldName: string = 'Date'): ValidationResult => {
+  if (!date) {
+    return { isValid: false, error: `${fieldName} is required` };
+  }
+  
+  const dateObj = new Date(date);
+  if (isNaN(dateObj.getTime())) {
+    return { isValid: false, error: `Please enter a valid ${fieldName.toLowerCase()}` };
+  }
+  
+  // Check if date is not in the past
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (dateObj < today) {
+    return { isValid: false, error: `${fieldName} cannot be in the past` };
   }
   
   return { isValid: true, sanitized: date };

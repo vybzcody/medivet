@@ -15,7 +15,7 @@
       "main": "src/medivet_backend/main.mo",
       "type": "motoko"
     },
-    "backend": {
+    "vault": {
       "main": "src/vault/app.mo",
       "type": "motoko",
       "args": "--enhanced-orthogonal-persistence"
