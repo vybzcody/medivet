@@ -6,6 +6,7 @@ import LandingPage from './components/LandingPage';
 import Dashboard from './components/dashboard/Dashboard';
 import Profile from './components/profile/Profile';
 import PatientBilling from './components/dashboard/PatientBilling';
+import Marketplace from './components/marketplace/Marketplace';
 import Layout from './components/ui/Layout';
 import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
 import OnboardingDemo from './components/demo/OnboardingDemo';
@@ -164,6 +165,16 @@ function App(): JSX.Element {
                     <PatientBilling />
                   </Layout>
                 ) : <Navigate to="/dashboard" replace />
+              } 
+            />
+            <Route 
+              path="/marketplace" 
+              element={
+                isAuthenticated ? (
+                  <Layout>
+                    <Marketplace />
+                  </Layout>
+                ) : <Navigate to="/" replace />
               } 
             />
             <Route 

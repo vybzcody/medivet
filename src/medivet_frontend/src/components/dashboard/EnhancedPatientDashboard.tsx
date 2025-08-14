@@ -292,7 +292,7 @@ const EnhancedPatientDashboard: React.FC = () => {
                   <div className="flex items-center space-x-4 text-sm text-gray-500">
                     <span className="flex items-center space-x-1">
                       <Calendar className="h-3 w-3" />
-                      <span>{formatDistance(new Date(record.record_date), new Date(), { addSuffix: true })}</span>
+                      <span>{formatDistance(new Date(Number(record.record_date)), new Date(), { addSuffix: true })}</span>
                     </span>
                     <span className="flex items-center space-x-1">
                       <Eye className="h-3 w-3" />
