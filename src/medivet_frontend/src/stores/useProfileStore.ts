@@ -181,16 +181,19 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Get the authenticated actor
       const actor = await createAuthenticatedActor(identity);
       
-      // Call backend with all required parameters
-      await actor.create_patient_profile(
-        fullName, 
-        dateOfBirth, 
-        contactInfo, 
-        emergencyContact,
-        medicalHistory ? [medicalHistory] : [],
-        allergies ? [allergies] : [],
-        currentMedications ? [currentMedications] : []
-      );
+      // Call backend with PatientProfile object
+      const patientProfile = {
+        fullName,
+        dob: dateOfBirth,
+        contact: contactInfo,
+        emergency: emergencyContact,
+        medicalHistory: medicalHistory ? [medicalHistory] : [],
+        allergies: allergies ? [allergies] : [],
+        medications: currentMedications ? [currentMedications] : [],
+        gender: 'Not specified' // Default value since it's required
+      };
+      
+      await actor.createPatientProfile(patientProfile);
       
       // Fetch the created profile from backend to get the complete data
       const createdProfile = await actor.get_patient_profile();
@@ -320,13 +323,15 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Get the authenticated actor
       const actor = await createAuthenticatedActor(identity);
       
-      // Call backend with only the parameters it expects (name, specialty, license_number, contact_info)
-      await actor.create_healthcare_provider_profile(
-        fullName, 
-        specialization, 
-        licenseNumber, 
-        contactInfo
-      );
+      // Call backend with ProviderProfile object
+      const providerProfile = {
+        name: fullName,
+        specialty: specialization,
+        license: licenseNumber,
+        contact: contactInfo
+      };
+      
+      await actor.createProviderProfile(providerProfile);
       
       // Fetch the created profile from backend to get the complete data
       const createdProfile = await actor.get_healthcare_provider_profile();

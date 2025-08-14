@@ -119,10 +119,15 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
   const handleInputBlur = (e: React.FocusEvent) => {
     // Delay closing to allow option selection
     setTimeout(() => {
-      if (!listRef.current?.contains(document.activeElement)) {
+      // Check if the focus moved to an option in the dropdown
+      const activeElement = document.activeElement;
+      const isClickingOption = listRef.current?.contains(activeElement) || 
+                              (activeElement && listRef.current?.contains(activeElement.parentElement));
+      
+      if (!isClickingOption) {
         setIsOpen(false);
       }
-    }, 150);
+    }, 200); // Increased timeout to ensure click events are processed
   };
 
   const clearInput = () => {
@@ -198,6 +203,11 @@ const AutocompleteInput: React.FC<AutocompleteInputProps> = ({
                   ${index === highlightedIndex ? 'bg-blue-100 text-blue-900' : 'text-gray-900 hover:bg-gray-100'}
                 `}
                 onClick={() => handleOptionSelect(option)}
+                onMouseDown={(e) => {
+                  // Prevent blur event from firing before click
+                  e.preventDefault();
+                  handleOptionSelect(option);
+                }}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
                 <div className="flex flex-col">

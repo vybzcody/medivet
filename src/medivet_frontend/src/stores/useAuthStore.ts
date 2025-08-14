@@ -182,8 +182,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
       // Create an authenticated actor using our actor service
       const authenticatedActor = await createAuthenticatedActor(identity);
       
-      // Use the authenticated actor to register the user role
-      await authenticatedActor.register_user_role(role);
+      // Use the authenticated actor to create user with role
+      await authenticatedActor.createUser(role);
       set({ userRole: role, isLoading: false });
       console.log('User role registered successfully:', role);
     } catch (error: any) {
