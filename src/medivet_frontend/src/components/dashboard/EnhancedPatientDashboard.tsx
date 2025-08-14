@@ -20,8 +20,11 @@ import { formatDistance } from 'date-fns';
 import useAuthStore from '../../stores/useAuthStore';
 import useProfileStore from '../../stores/useProfileStore';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
-import AddRecordModal from './AddRecordModal';
-import ShareRecordModal from './ShareRecordModal';
+import UploadModal from '../modals/UploadModal';
+import ShareModal from '../modals/ShareModal';
+import AiInsightConsentModal from '../modals/AiInsightConsentModal';
+import AiInsightResultModal from '../modals/AiInsightResultModal';
+import WithdrawalModal from '../modals/WithdrawalModal';
 import { HealthRecord } from '../../types';
 import { usePolling } from '../../hooks/usePolling';
 
@@ -42,9 +45,13 @@ const EnhancedPatientDashboard: React.FC = () => {
     isLoading: recordsLoading 
   } = useHealthRecordStore();
   
-  const [showAddRecordModal, setShowAddRecordModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null);
+  const [showAiConsentModal, setShowAiConsentModal] = useState(false);
+  const [showAiResultModal, setShowAiResultModal] = useState(false);
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const [aiInsightData, setAiInsightData] = useState<any>(null);
 
   // Add polling support
   const { refresh, isRefreshing } = usePolling({
@@ -62,9 +69,14 @@ const EnhancedPatientDashboard: React.FC = () => {
     }
   }, [principal, fetchPatientProfile, fetchRecords]);
 
-  const handleShare = (record: HealthRecord) => {
-    setSelectedRecord(record);
+  const handleShare = (recordId: number) => {
+    setSelectedRecordId(recordId);
     setShowShareModal(true);
+  };
+
+  const handleAiInsightGenerated = (insight: any) => {
+    setAiInsightData(insight);
+    setShowAiResultModal(true);
   };
 
   const getStatusColor = (record: HealthRecord) => {
@@ -101,11 +113,18 @@ const EnhancedPatientDashboard: React.FC = () => {
         </div>
         <div className="flex space-x-3">
           <Button
-            onClick={() => setShowAddRecordModal(true)}
+            onClick={() => setShowUploadModal(true)}
             className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
           >
             <Upload className="mr-2 h-4 w-4" />
             Upload Record
+          </Button>
+          <Button
+            onClick={() => setShowWithdrawalModal(true)}
+            variant="outline"
+          >
+            <DollarSign className="mr-2 h-4 w-4" />
+            Withdraw Funds
           </Button>
           <Button
             onClick={refresh}
@@ -181,23 +200,155 @@ const EnhancedPatientDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Continue with rest of component... */}
+      {/* AI Health Insights Card */}
+      <Card className="p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <Activity className="h-5 w-5 mr-2" />
+            AI Health Insights (Preview)
+          </h2>
+          <p className="text-gray-600 mt-1">
+            100% opt-in, encrypted on-device demo.
+          </p>
+        </div>
+        <Button 
+          onClick={() => setShowAiConsentModal(true)}
+          className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+        >
+          Try Demo
+        </Button>
+      </Card>
+
+      {/* Data Monetization Status */}
+      <Card className="p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <DollarSign className="h-5 w-5 mr-2 text-green-600" />
+            Data Monetization
+            <Badge variant="success" className="ml-2">
+              Enabled
+            </Badge>
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Control how your health data can be used for research and compensation
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">Monetization Status</p>
+              <p className="text-sm text-gray-600">
+                Your data can be listed on the marketplace
+              </p>
+            </div>
+            <Button variant="outline">
+              Manage Settings
+            </Button>
+          </div>
+          <Progress value={100} className="h-2" />
+        </div>
+      </Card>
+
+      {/* Recent Records */}
+      <Card className="p-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <FileText className="h-5 w-5 mr-2" />
+            Your Health Records
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Manage and share your medical data securely
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {records.length === 0 ? (
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No health records yet</h3>
+              <p className="text-gray-600 mb-4">Upload your first record to get started</p>
+              <Button 
+                onClick={() => setShowUploadModal(true)}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Record
+              </Button>
+            </div>
+          ) : (
+            records.map((record) => (
+              <div 
+                key={record.id} 
+                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <h4 className="font-medium text-gray-900">{record.title}</h4>
+                    <Badge variant={getStatusColor(record) as any}>
+                      {record.user_permissions && record.user_permissions.length > 0 ? 'Shared' : 'Private'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-4 text-sm text-gray-500">
+                    <span className="flex items-center space-x-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDistance(new Date(record.record_date), new Date(), { addSuffix: true })}</span>
+                    </span>
+                    <span className="flex items-center space-x-1">
+                      <Eye className="h-3 w-3" />
+                      <span>0 views</span>
+                    </span>
+                    <span className="capitalize text-blue-600">{record.category}</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleShare(record.id)}
+                  >
+                    <Share2 className="h-3 w-3 mr-1" />
+                    Share
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-3 w-3 mr-1" />
+                    View
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
+
       {/* Modals */}
-      <AddRecordModal
-        isOpen={showAddRecordModal}
-        onClose={() => setShowAddRecordModal(false)}
+      <UploadModal
+        open={showUploadModal}
+        onOpenChange={setShowUploadModal}
       />
       
-      {selectedRecord && (
-        <ShareRecordModal
-          isOpen={showShareModal}
-          onClose={() => {
-            setShowShareModal(false);
-            setSelectedRecord(null);
-          }}
-          record={selectedRecord}
-        />
-      )}
+      <ShareModal
+        open={showShareModal}
+        onOpenChange={setShowShareModal}
+        recordId={selectedRecordId}
+      />
+
+      <AiInsightConsentModal
+        open={showAiConsentModal}
+        onOpenChange={setShowAiConsentModal}
+        onInsightGenerated={handleAiInsightGenerated}
+      />
+
+      <AiInsightResultModal
+        open={showAiResultModal}
+        onOpenChange={setShowAiResultModal}
+        insightData={aiInsightData}
+      />
+
+      <WithdrawalModal
+        open={showWithdrawalModal}
+        onOpenChange={setShowWithdrawalModal}
+      />
     </div>
   );
 };
