@@ -5,6 +5,7 @@ import useProfileStore from './stores/useProfileStore';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/dashboard/Dashboard';
 import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
+import LoadingSpinner from './components/ui/LoadingSpinner';
 import { ToastProvider } from './hooks/useToast';
 import { UserRoleValue } from './types';
 
@@ -84,10 +85,9 @@ function App(): JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading MediVet...</p>
+          <LoadingSpinner size="lg" text="Loading MediVet..." />
         </div>
       </div>
     );
