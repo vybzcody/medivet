@@ -281,7 +281,6 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // TODO: Implement when backend method is available
       console.warn('fetchHealthcareProviderProfile not yet implemented - backend method get_healthcare_provider_profile not available');
       set({ healthcareProviderProfile: null, isLoading: false });
-      }
     } catch (error: any) {
       console.error("Error fetching healthcare provider profile:", error);
       set({ error: error.message, isLoading: false, healthcareProviderProfile: null });
@@ -324,10 +323,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       };
       
       set({ healthcareProviderProfile: profile, isLoading: false });
-        console.log('Healthcare provider profile created successfully:', profile);
-      } else {
-        throw new Error('Failed to retrieve created profile');
-      }
+      console.log('Healthcare provider profile created successfully (placeholder):', profile);
     } catch (error: any) {
       console.error("Error creating healthcare provider profile:", error);
       set({ error: error.message, isLoading: false });
