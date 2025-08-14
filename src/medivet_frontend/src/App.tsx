@@ -5,6 +5,7 @@ import useProfileStore from './stores/useProfileStore';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/dashboard/Dashboard';
 import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
+import OnboardingDemo from './components/demo/OnboardingDemo';
 import LoadingSpinner from './components/ui/LoadingSpinner';
 import { ToastProvider } from './hooks/useToast';
 import { UserRoleValue } from './types';
@@ -137,6 +138,10 @@ function App(): JSX.Element {
               element={
                 isAuthenticated ? <Dashboard /> : <Navigate to="/" replace />
               } 
+            />
+            <Route 
+              path="/demo" 
+              element={<OnboardingDemo />} 
             />
             <Route 
               path="*" 
