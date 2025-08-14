@@ -182,8 +182,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
       // Create an authenticated actor using our actor service
       const authenticatedActor = await createAuthenticatedActor(identity);
       
+      // Convert frontend UserRole to backend Role variant format
+      let backendRole;
+      if (role === UserRole.Patient) {
+        backendRole = { 'Patient': null };
+      } else if (role === UserRole.HealthcareProvider) {
+        backendRole = { 'Provider': null };
+      } else {
+        throw new Error('Invalid user role');
+      }
+      
       // Use the authenticated actor to create user with role
-      await authenticatedActor.createUser(role);
+      await authenticatedActor.createUser(backendRole);
       set({ userRole: role, isLoading: false });
       console.log('User role registered successfully:', role);
     } catch (error: any) {
