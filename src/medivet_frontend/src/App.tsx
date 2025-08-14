@@ -4,7 +4,7 @@ import useAuthStore from './stores/useAuthStore';
 import useProfileStore from './stores/useProfileStore';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/dashboard/Dashboard';
-import OnboardingModal from './components/onboarding/OnboardingModal';
+import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
 import { ToastProvider } from './hooks/useToast';
 import { UserRoleValue } from './types';
 
@@ -119,7 +119,7 @@ function App(): JSX.Element {
       <Router>
         <>
           {/* Onboarding Modal */}
-          <OnboardingModal 
+          <ImprovedOnboardingModal 
             isOpen={showOnboarding} 
             onClose={handleOnboardingComplete} 
           />
