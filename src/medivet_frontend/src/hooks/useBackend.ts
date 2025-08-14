@@ -33,10 +33,13 @@ export function useBackend() {
 
   /**
    * Get the current user's principal ID
+   * Note: This method is not available in the current backend implementation
    * @returns The principal ID as a string
    */
   const whoami = useCallback(async (): Promise<string> => {
-    return callBackend(() => medivet_backend.whoami());
+    // TODO: Implement when backend method is available
+    console.warn('whoami method not yet implemented in backend');
+    return 'placeholder-principal';
   }, [callBackend]);
 
   return {

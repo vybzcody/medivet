@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../ui/Card';
+import Card from '../ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import Badge from '../ui/Badge';
 import { DollarSign, TrendingUp, Calendar, FileText } from 'lucide-react';
@@ -98,7 +98,7 @@ const PatientBilling: React.FC = () => {
               <p className="text-sm font-medium text-gray-600">This Month</p>
               <div className="text-2xl font-bold text-blue-600">
                 ${mockBillingData
-                  .filter(item => item.status === 'Completed' && 
+                  .filter(item => item.status === 'Completed' &&
                     new Date(item.date) > new Date(Date.now() - 30 * 86400000))
                   .reduce((acc, item) => acc + item.amount, 0)
                   .toFixed(2)}

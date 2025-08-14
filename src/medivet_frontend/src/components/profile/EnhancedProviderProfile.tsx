@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Label from '../ui/Label';
 import Textarea from '../ui/Textarea';
 import Badge from '../ui/Badge';
-import { 
-  User, 
-  Save, 
-  Shield, 
-  Building, 
-  Award, 
-  Phone, 
-  Mail, 
+import {
+  User,
+  Save,
+  Shield,
+  Building,
+  Award,
+  Phone,
+  Mail,
   MapPin,
   Stethoscope,
   FileText
@@ -87,7 +87,7 @@ const EnhancedProviderProfile: React.FC = () => {
             Manage your professional information and credentials
           </p>
         </div>
-        <Button 
+        <Button
           onClick={handleSave}
           disabled={saving}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
@@ -229,7 +229,7 @@ const EnhancedProviderProfile: React.FC = () => {
             Your professional verification and compliance status
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center justify-center mb-2">
@@ -239,7 +239,7 @@ const EnhancedProviderProfile: React.FC = () => {
             <p className="text-sm text-green-700">Professional License</p>
             <Badge variant="success" className="mt-2">Active</Badge>
           </div>
-          
+
           <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-center mb-2">
               <FileText className="h-6 w-6 text-blue-600" />
@@ -248,7 +248,7 @@ const EnhancedProviderProfile: React.FC = () => {
             <p className="text-sm text-blue-700">HIPAA Certified</p>
             <Badge variant="default" className="mt-2">Current</Badge>
           </div>
-          
+
           <div className="text-center p-4 bg-purple-50 border border-purple-200 rounded-lg">
             <div className="flex items-center justify-center mb-2">
               <Award className="h-6 w-6 text-purple-600" />
@@ -268,7 +268,7 @@ const EnhancedProviderProfile: React.FC = () => {
             Types of patient data you can access based on granted permissions
           </p>
         </div>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-3 bg-gray-50 rounded-lg text-center">
             <div className="text-sm font-medium text-gray-900">Basic Info</div>
