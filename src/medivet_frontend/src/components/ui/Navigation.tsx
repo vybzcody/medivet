@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  User, 
-  DollarSign, 
+import {
+  Home,
+  User,
+  DollarSign,
   LogOut,
   Menu,
   X
 } from 'lucide-react';
-import { Button } from './Button';
+import Button from './Button';
 import useAuthStore from '../../stores/useAuthStore';
 import { UserRoleValue } from '../../types';
 
@@ -69,9 +69,8 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen, onToggle }) => {
       </div>
 
       {/* Navigation sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      } md:translate-x-0 md:static md:inset-0`}>
+      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0 md:static md:inset-0`}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-center h-16 px-4 bg-gradient-to-r from-blue-600 to-blue-700">
@@ -85,17 +84,16 @@ const Navigation: React.FC<NavigationProps> = ({ isOpen, onToggle }) => {
               .map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
-                
+
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
                     onClick={() => onToggle()}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
+                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
                         ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-700'
                         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
+                      }`}
                   >
                     <Icon className="mr-3 h-5 w-5" />
                     {item.name}

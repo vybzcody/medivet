@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  Users, 
-  FileText, 
-  Search, 
-  TrendingUp, 
+import {
+  Users,
+  FileText,
+  Search,
+  TrendingUp,
   Activity,
   Shield,
   Clock,
@@ -13,8 +13,8 @@ import {
   Filter,
   Download
 } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 import { formatDistance } from 'date-fns';
@@ -125,7 +125,7 @@ const EnhancedProviderDashboard: React.FC = () => {
 
   const filteredRecords = mockPatientRecords.filter(record => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.recordTitle.toLowerCase().includes(searchTerm.toLowerCase());
+      record.recordTitle.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || record.status.toLowerCase() === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -332,7 +332,7 @@ const EnhancedProviderDashboard: React.FC = () => {
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No records found</h3>
               <p className="text-gray-600">
-                {searchTerm || statusFilter !== 'all' 
+                {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria'
                   : 'No patient records have been shared with you yet'
                 }
@@ -395,7 +395,7 @@ const EnhancedProviderDashboard: React.FC = () => {
             Your data access compliance status
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <div className="text-2xl font-bold text-green-600">100%</div>

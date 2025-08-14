@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  Users, 
-  FileText, 
-  Shield, 
-  TrendingUp, 
+import {
+  Users,
+  FileText,
+  Shield,
+  TrendingUp,
   Activity,
   AlertTriangle,
   CheckCircle,
@@ -11,8 +11,8 @@ import {
   RefreshCw,
   Settings
 } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/Table';
 

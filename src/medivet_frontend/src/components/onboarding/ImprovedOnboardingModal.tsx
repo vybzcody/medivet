@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserRole, UserRoleValue } from '../../types';
 import useAuthStore from '../../stores/useAuthStore';
 import ImprovedPatientOnboarding from './ImprovedPatientOnboarding';
-import ProviderOnboarding from './ProviderOnboarding';
+import ImprovedProviderOnboarding from './ImprovedProviderOnboarding';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ProgressSteps from '../ui/ProgressSteps';
@@ -220,7 +220,7 @@ const ImprovedOnboardingModal: React.FC<ImprovedOnboardingModalProps> = ({
               {selectedRole === UserRoleValue.Patient ? (
                 <ImprovedPatientOnboarding onComplete={handleComplete} />
               ) : (
-                <ProviderOnboarding onComplete={handleComplete} />
+                <ImprovedProviderOnboarding onComplete={handleComplete} />
               )}
             </div>
           )}

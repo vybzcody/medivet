@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Label from '../ui/Label';
 import Textarea from '../ui/Textarea';
@@ -82,7 +82,7 @@ const EnhancedPatientProfile: React.FC = () => {
             Manage your personal information and privacy settings
           </p>
         </div>
-        <Button 
+        <Button
           onClick={handleSave}
           disabled={saving}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg"
@@ -190,7 +190,7 @@ const EnhancedPatientProfile: React.FC = () => {
                 onCheckedChange={setMonetizeEnabled}
               />
             </div>
-            
+
             {monetizeEnabled ? (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center space-x-2 mb-2">
@@ -199,7 +199,7 @@ const EnhancedPatientProfile: React.FC = () => {
                   <Badge variant="success">Active</Badge>
                 </div>
                 <p className="text-sm text-green-700">
-                  Your health records marked as "Monetizable" can be listed on the marketplace. 
+                  Your health records marked as "Monetizable" can be listed on the marketplace.
                   All data is encrypted and anonymized before sharing.
                 </p>
               </div>
@@ -211,7 +211,7 @@ const EnhancedPatientProfile: React.FC = () => {
                   <Badge variant="secondary">Inactive</Badge>
                 </div>
                 <p className="text-sm text-gray-600">
-                  Your health data will not be available for monetization. 
+                  Your health data will not be available for monetization.
                   You can enable this feature at any time.
                 </p>
               </div>

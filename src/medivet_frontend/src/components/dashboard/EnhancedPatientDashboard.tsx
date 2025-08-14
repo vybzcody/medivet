@@ -12,8 +12,8 @@ import {
   RefreshCw,
   Plus
 } from 'lucide-react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import Progress from '../ui/Progress';
 import { formatDistance } from 'date-fns';
@@ -67,16 +67,17 @@ const EnhancedPatientDashboard: React.FC = () => {
     setShowShareModal(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Monetizable': return 'success';
-      case 'NonMonetizable': return 'secondary';
-      case 'Flagged': return 'destructive';
-      default: return 'secondary';
+  const getStatusColor = (record: HealthRecord) => {
+    // Since status doesn't exist in HealthRecord, we'll determine status based on other properties
+    if (record.user_permissions && record.user_permissions.length > 0) {
+      return 'success'; // Has permissions, so it's monetizable
     }
+    return 'secondary'; // Default status
   };
 
-  const monetizableRecords = records.filter(r => r.status === 'Monetizable').length;
+  const monetizableRecords = records.filter(r => 
+    r.user_permissions && r.user_permissions.length > 0
+  ).length;
 
   if (profileLoading) {
     return (
