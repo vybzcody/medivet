@@ -4,6 +4,9 @@ import useAuthStore from './stores/useAuthStore';
 import useProfileStore from './stores/useProfileStore';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/dashboard/Dashboard';
+import Profile from './components/profile/Profile';
+import PatientBilling from './components/dashboard/PatientBilling';
+import Layout from './components/ui/Layout';
 import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
 import OnboardingDemo from './components/demo/OnboardingDemo';
 import LoadingSpinner from './components/ui/LoadingSpinner';
@@ -136,7 +139,31 @@ function App(): JSX.Element {
             <Route 
               path="/dashboard" 
               element={
-                isAuthenticated ? <Dashboard /> : <Navigate to="/" replace />
+                isAuthenticated ? (
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                ) : <Navigate to="/" replace />
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                isAuthenticated ? (
+                  <Layout>
+                    <Profile />
+                  </Layout>
+                ) : <Navigate to="/" replace />
+              } 
+            />
+            <Route 
+              path="/billing" 
+              element={
+                isAuthenticated && userRole === UserRoleValue.Patient ? (
+                  <Layout>
+                    <PatientBilling />
+                  </Layout>
+                ) : <Navigate to="/dashboard" replace />
               } 
             />
             <Route 
