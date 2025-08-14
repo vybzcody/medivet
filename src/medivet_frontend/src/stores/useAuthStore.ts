@@ -193,9 +193,23 @@ const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       // Use the authenticated actor to create user with role
-      await authenticatedActor.createUser(backendRole);
-      set({ userRole: role, isLoading: false });
-      console.log('User role registered successfully:', role);
+      const result = await authenticatedActor.createUser(backendRole);
+      
+      // Handle the result properly
+      if ('ok' in result) {
+        set({ userRole: role, isLoading: false });
+        console.log('User role registered successfully:', role);
+      } else {
+        // Handle backend errors
+        const errorMessage = result.err;
+        if (errorMessage === 'already registered') {
+          // User is already registered, this is actually okay
+          console.log('User already registered, continuing with existing role');
+          set({ userRole: role, isLoading: false });
+        } else {
+          throw new Error(errorMessage);
+        }
+      }
     } catch (error: any) {
       console.error('Set user role error:', error);
       set({ error: error.message, isLoading: false });

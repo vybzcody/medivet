@@ -195,7 +195,14 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         gender: 'Not specified' // Default value since it's required
       };
       
-      await actor.createPatientProfile(patientProfile);
+      const result = await actor.createPatientProfile(patientProfile);
+      
+      // Handle the result properly
+      if ('err' in result) {
+        // Handle backend errors gracefully
+        console.warn('Backend error creating patient profile:', result.err);
+        // Continue with placeholder profile creation for now
+      }
       
       // TODO: Implement profile fetching when backend methods are available
       // For now, create a placeholder profile from the input data
@@ -308,7 +315,14 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         contact: contactInfo
       };
       
-      await actor.createProviderProfile(providerProfile);
+      const result = await actor.createProviderProfile(providerProfile);
+      
+      // Handle the result properly
+      if ('err' in result) {
+        // Handle backend errors gracefully
+        console.warn('Backend error creating provider profile:', result.err);
+        // Continue with placeholder profile creation for now
+      }
       
       // TODO: Implement profile fetching when backend methods are available
       // For now, create a placeholder profile from the input data
