@@ -7,6 +7,11 @@ import Dashboard from './components/dashboard/Dashboard';
 import Profile from './components/profile/Profile';
 import PatientBilling from './components/dashboard/PatientBilling';
 import Marketplace from './components/marketplace/Marketplace';
+import AdminPanel from './components/admin/AdminPanel';
+import UserManagement from './components/admin/UserManagement';
+import PurchasedRecords from './components/provider/PurchasedRecords';
+import RecordDetail from './components/records/RecordDetail';
+import EnhancedOnboarding from './components/onboarding/EnhancedOnboarding';
 import Layout from './components/ui/Layout';
 import ImprovedOnboardingModal from './components/onboarding/ImprovedOnboardingModal';
 import OnboardingDemo from './components/demo/OnboardingDemo';
@@ -176,6 +181,50 @@ function App(): JSX.Element {
                   </Layout>
                 ) : <Navigate to="/" replace />
               } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                isAuthenticated && userRole === UserRoleValue.Admin ? (
+                  <Layout>
+                    <AdminPanel />
+                  </Layout>
+                ) : <Navigate to="/dashboard" replace />
+              } 
+            />
+            <Route 
+              path="/users" 
+              element={
+                isAuthenticated && userRole === UserRoleValue.Admin ? (
+                  <Layout>
+                    <UserManagement />
+                  </Layout>
+                ) : <Navigate to="/dashboard" replace />
+              } 
+            />
+            <Route 
+              path="/purchased" 
+              element={
+                isAuthenticated && userRole === UserRoleValue.HealthcareProvider ? (
+                  <Layout>
+                    <PurchasedRecords />
+                  </Layout>
+                ) : <Navigate to="/dashboard" replace />
+              } 
+            />
+            <Route 
+              path="/record/:id" 
+              element={
+                isAuthenticated ? (
+                  <Layout>
+                    <RecordDetail />
+                  </Layout>
+                ) : <Navigate to="/" replace />
+              } 
+            />
+            <Route 
+              path="/onboarding" 
+              element={<EnhancedOnboarding />} 
             />
             <Route 
               path="/demo" 
