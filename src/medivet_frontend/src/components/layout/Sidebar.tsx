@@ -40,7 +40,7 @@ const Sidebar: React.FC = () => {
         ];
       default:
         return [
-          { icon: Shield, label: 'Admin Panel', path: '/dashboard' },
+          { icon: Shield, label: 'Admin Panel', path: '/admin' },
           { icon: Users, label: 'Users', path: '/users' },
           { icon: User, label: 'Profile', path: '/profile' },
           { icon: Store, label: 'Marketplace', path: '/marketplace' },
