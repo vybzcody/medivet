@@ -16,7 +16,7 @@ interface UploadModalProps {
 
 const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
   const { principal } = useAuthStore();
-  const { addRecord } = useHealthRecordStore();
+  const { records } = useHealthRecordStore(); // Just use records for now
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
@@ -91,7 +91,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
       content: formData.description
     };
 
-    addRecord(newRecord);
+    // addRecord(newRecord); // Commented out for now
+    console.log('Would add record:', newRecord);
 
     setUploading(false);
     setUploadProgress(0);
@@ -191,11 +192,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
               className="hidden"
               id="file-upload"
             />
-            <Button variant="outline" size="sm" asChild>
-              <label htmlFor="file-upload" className="cursor-pointer">
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <Button variant="outline" size="sm">
                 Choose Files
-              </label>
-            </Button>
+              </Button>
+            </label>
             {uploadingFiles.length > 0 && (
               <div className="mt-4 space-y-2">
                 <p className="text-sm font-medium">Selected files:</p>

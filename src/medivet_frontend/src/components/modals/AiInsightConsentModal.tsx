@@ -33,7 +33,7 @@ const AiInsightConsentModal: React.FC<AiInsightConsentModalProps> = ({
 
   const mockRecordOptions = userRecords.map(record => ({
     id: record.id,
-    label: `${record.title} - ${new Date(record.record_date).toLocaleDateString()}`,
+    label: `${record.title} - ${new Date(Number(record.record_date)).toLocaleDateString()}`,
   }));
 
   const handleCheckboxChange = (recordId: number, checked: boolean) => {
@@ -143,7 +143,6 @@ const AiInsightConsentModal: React.FC<AiInsightConsentModalProps> = ({
             <div className="flex items-center justify-between">
               <Label htmlFor="generate-mock">Generate mock insight</Label>
               <Switch
-                id="generate-mock"
                 checked={generateMockInsight}
                 onCheckedChange={setGenerateMockInsight}
               />
