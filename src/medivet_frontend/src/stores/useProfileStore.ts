@@ -137,8 +137,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         });
         return;
       } else {
-        // Fetch current user's patient profile
-        profileResult = await actor.get_patient_profile();
+        // TODO: Implement when backend method is available
+        console.warn('fetchPatientProfile not yet implemented - backend method get_patient_profile not available');
+        set({ patientProfile: null, isLoading: false });
+        return;
       }
       
       if (profileResult && profileResult.length > 0) {
@@ -195,29 +197,22 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       
       await actor.createPatientProfile(patientProfile);
       
-      // Fetch the created profile from backend to get the complete data
-      const createdProfile = await actor.get_patient_profile();
+      // TODO: Implement profile fetching when backend methods are available
+      // For now, create a placeholder profile from the input data
+      const profile: PatientProfile = {
+        owner: '', // Will be set by backend
+        full_name: fullName,
+        date_of_birth: dateOfBirth,
+        contact_info: contactInfo,
+        emergency_contact: emergencyContact,
+        medical_history: medicalHistory || null,
+        allergies: allergies || null,
+        current_medications: currentMedications || null,
+        profile_permissions: []
+      };
       
-      if (createdProfile && createdProfile.length > 0) {
-        // Transform backend profile to frontend format
-        const backendProfile = createdProfile[0];
-        const profile: PatientProfile = {
-          owner: backendProfile.owner,
-          full_name: backendProfile.full_name,
-          date_of_birth: backendProfile.date_of_birth,
-          contact_info: backendProfile.contact_info,
-          emergency_contact: backendProfile.emergency_contact,
-          medical_history: backendProfile.medical_history,
-          allergies: backendProfile.allergies,
-          current_medications: backendProfile.current_medications,
-          profile_permissions: backendProfile.profile_permissions || []
-        };
-        
-        set({ patientProfile: profile, isLoading: false });
-        console.log('Patient profile created successfully:', profile);
-      } else {
-        throw new Error('Failed to retrieve created profile');
-      }
+      set({ patientProfile: profile, isLoading: false });
+      console.log('Patient profile created successfully (placeholder):', profile);
     } catch (error: any) {
       console.error("Error creating patient profile:", error);
       set({ error: error.message, isLoading: false });
@@ -283,26 +278,9 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Get the authenticated actor
       const actor = await createAuthenticatedActor(identity);
       
-      const profileResult = await actor.get_healthcare_provider_profile();
-      
-      if (profileResult && profileResult.length > 0) {
-        // Backend returns an optional, so check if profile exists
-        const backendProfile = profileResult[0];
-        const profile: HealthcareProviderProfile = {
-          owner: "", // Backend doesn't return owner in current implementation
-          full_name: backendProfile.name,
-          specialization: backendProfile.specialty,
-          license_number: backendProfile.license_number,
-          contact_info: backendProfile.contact_info,
-          facility_name: null, // Frontend-only field, not stored in backend
-          facility_address: null // Frontend-only field, not stored in backend
-        };
-        set({ healthcareProviderProfile: profile, isLoading: false });
-        console.log('Healthcare provider profile fetched successfully:', profile);
-      } else {
-        // No profile found
-        set({ healthcareProviderProfile: null, isLoading: false });
-        console.log('No healthcare provider profile found');
+      // TODO: Implement when backend method is available
+      console.warn('fetchHealthcareProviderProfile not yet implemented - backend method get_healthcare_provider_profile not available');
+      set({ healthcareProviderProfile: null, isLoading: false });
       }
     } catch (error: any) {
       console.error("Error fetching healthcare provider profile:", error);
@@ -333,23 +311,19 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       
       await actor.createProviderProfile(providerProfile);
       
-      // Fetch the created profile from backend to get the complete data
-      const createdProfile = await actor.get_healthcare_provider_profile();
+      // TODO: Implement profile fetching when backend methods are available
+      // For now, create a placeholder profile from the input data
+      const profile: HealthcareProviderProfile = {
+        owner: "", // Will be set by backend
+        full_name: fullName,
+        specialization: specialization,
+        license_number: licenseNumber,
+        contact_info: contactInfo,
+        facility_name: facilityName,
+        facility_address: facilityAddress
+      };
       
-      if (createdProfile && createdProfile.length > 0) {
-        // Transform backend profile to frontend format
-        const backendProfile = createdProfile[0];
-        const profile: HealthcareProviderProfile = {
-          owner: "", // Backend doesn't return owner in current implementation
-          full_name: backendProfile.name,
-          specialization: backendProfile.specialty,
-          license_number: backendProfile.license_number,
-          contact_info: backendProfile.contact_info,
-          facility_name: facilityName, // Frontend-only field
-          facility_address: facilityAddress // Frontend-only field
-        };
-        
-        set({ healthcareProviderProfile: profile, isLoading: false });
+      set({ healthcareProviderProfile: profile, isLoading: false });
         console.log('Healthcare provider profile created successfully:', profile);
       } else {
         throw new Error('Failed to retrieve created profile');
