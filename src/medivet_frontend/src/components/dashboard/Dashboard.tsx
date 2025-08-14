@@ -3,6 +3,9 @@ import { UserRoleValue } from '../../types';
 import useAuthStore from '../../stores/useAuthStore';
 import PatientDashboard from './PatientDashboard';
 import ProviderDashboard from './ProviderDashboard';
+import EnhancedPatientDashboard from './EnhancedPatientDashboard';
+import EnhancedProviderDashboard from './EnhancedProviderDashboard';
+import EnhancedAdminDashboard from './EnhancedAdminDashboard';
 
 const Dashboard: React.FC = () => {
   const { userRole, isLoading } = useAuthStore();
@@ -18,23 +21,15 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Render the appropriate dashboard based on user role
+  // Use enhanced dashboards for better UI experience
   switch (userRole) {
     case UserRoleValue.Patient:
-      return <PatientDashboard />;
+      return <EnhancedPatientDashboard />;
     case UserRoleValue.HealthcareProvider:
-      return <ProviderDashboard />;
+      return <EnhancedProviderDashboard />;
     default:
-      // This should not happen if onboarding is working correctly
-      return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md">
-              <p>User role not set. Please contact support.</p>
-            </div>
-          </div>
-        </div>
-      );
+      // Admin dashboard or fallback
+      return <EnhancedAdminDashboard />;
   }
 };
 
