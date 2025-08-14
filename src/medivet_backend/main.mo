@@ -92,8 +92,12 @@ private transient var logs = HashMap.HashMap<Nat, AccessLog>(0, Nat.equal, Hash.
 
 
 // -------------------- Helpers --------------------
-private func require(cond: Bool, err: Text): () {
-  assert(cond);
+private func require(cond: Bool, err: Text): Result<()> {
+  if (cond) {
+    #ok(());
+  } else {
+    #err(err);
+  };
 };
 
 private func getUser(p: Principal): Result<User> =
@@ -104,8 +108,16 @@ private func getUser(p: Principal): Result<User> =
 
 // -------------------- User Management --------------------
 public shared ({ caller }) func createUser(role: Role): async Result<()> {
-  require(not Principal.isAnonymous(caller), "anonymous");
-  require(users.get(caller) == null, "already registered");
+  switch (require(not Principal.isAnonymous(caller), "anonymous")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  switch (require(users.get(caller) == null, "already registered")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   let u: User = {
     id = caller;
     role;
@@ -119,22 +131,41 @@ public shared ({ caller }) func createUser(role: Role): async Result<()> {
 
 public shared ({ caller }) func createPatientProfile(p: PatientProfile): async Result<()> {
   let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
-  require(u.role == #Patient, "role mismatch");
+  
+  switch (require(u.role == #Patient, "role mismatch")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   users.put(caller, { u with profile = ?(#Patient p) });
   #ok(());
 };
 
 public shared ({ caller }) func createProviderProfile(p: ProviderProfile): async Result<()> {
   let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
-  require(u.role == #Provider, "role mismatch");
+  
+  switch (require(u.role == #Provider, "role mismatch")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   users.put(caller, { u with profile = ?(#Provider p) });
   #ok(());
 };
 
 public shared ({ caller }) func whitelistProvider(p: Principal): async Result<()> {
-  require(caller == admin, "not admin");
+  switch (require(caller == admin, "not admin")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   let u = switch (getUser(p)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
-  require(u.role == #Provider, "not provider");
+  
+  switch (require(u.role == #Provider, "not provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   users.put(p, { u with reputation = 100 });
   #ok(());
 };
@@ -163,13 +194,22 @@ public shared ({ caller }) func whitelistProvider(p: Principal): async Result<()
 
 public shared ({ caller }) func deleteRecord(id: Nat): async Result<()> {
   let rec = switch (records.get(id)) { case (?r) r; case null return #err("not found"); };
-  require(rec.owner == caller, "not owner");
+  
+  switch (require(rec.owner == caller, "not owner")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   let _ = records.remove(id);
   #ok(());
 };
 
 public shared ({ caller }) func flagRecord(id: Nat): async Result<()> {
-  require(caller == admin, "not admin");
+  switch (require(caller == admin, "not admin")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   switch (records.get(id)) {
     case null return #err("not found");
     case (?rec) {
@@ -183,15 +223,28 @@ public shared ({ caller }) func flagRecord(id: Nat): async Result<()> {
 public shared (msg) func queryRecord(id: Nat): async Result<HealthRecord> {
   let caller = msg.caller;
   let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
-  require(u.role == #Provider, "only provider");
+  
+  switch (require(u.role == #Provider, "only provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
   let now = Time.now();
   if (now - u.lastSpamTs < REPUTATION_DECAY) {
-    require(u.reputation > SPAM_THRESHOLD, "reputation too low");
+    switch (require(u.reputation > SPAM_THRESHOLD, "reputation too low")) {
+      case (#err(msg)) { return #err(msg); };
+      case (#ok()) {};
+    };
   };
+  
   switch (records.get(id)) {
     case null return #err("not found");
     case (?rec) {
-      require(rec.status == #Monetizable, "record not monetizable");
+      switch (require(rec.status == #Monetizable, "record not monetizable")) {
+        case (#err(msg)) { return #err(msg); };
+        case (#ok()) {};
+      };
+      
       // Simulate payment
       let paid = QUERY_COST_MT;
       logs.put(nextLogId, {
