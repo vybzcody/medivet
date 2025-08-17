@@ -221,7 +221,7 @@ const useFileStore = create<FileStore>((set, get) => ({
       });
 
       await get().loadFiles();
-      await get().loadProfilePhoto();
+      // Note: Profile photo refresh should be handled by components that have access to user principal
       
     } catch (error) {
       console.error('Profile photo upload failed:', error);
@@ -440,8 +440,14 @@ const useFileStore = create<FileStore>((set, get) => ({
   // Profile photo
   loadProfilePhoto: async (userPrincipal?: string) => {
     try {
-      // If no principal provided, use current user (will be determined by the service)
-      const photoMetadata = await fileService.getUserProfilePhoto(userPrincipal || '');
+      // If no principal provided, we can't load the photo
+      if (!userPrincipal) {
+        console.warn('No user principal provided for profile photo loading');
+        set({ profilePhotoUrl: null });
+        return;
+      }
+      
+      const photoMetadata = await fileService.getUserProfilePhoto(userPrincipal);
       
       if (photoMetadata) {
         const photoUrl = await fileService.getFilePreviewUrl(photoMetadata.name);

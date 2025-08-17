@@ -34,8 +34,10 @@ const EnhancedPatientProfile: React.FC = () => {
   // Fetch profile data on component mount
   useEffect(() => {
     fetchPatientProfile();
-    loadProfilePhoto();
-  }, [fetchPatientProfile, loadProfilePhoto]);
+    if (principal) {
+      loadProfilePhoto(principal.toString());
+    }
+  }, [fetchPatientProfile, loadProfilePhoto, principal]);
 
   useEffect(() => {
     if (patientProfile) {
@@ -129,7 +131,9 @@ const EnhancedPatientProfile: React.FC = () => {
             onUploadComplete={(url) => {
               console.log('Profile photo uploaded successfully:', url);
               // Refresh profile photo
-              loadProfilePhoto();
+              if (principal) {
+                loadProfilePhoto(principal.toString());
+              }
             }}
             onUploadError={(error) => {
               console.error('Profile photo upload error:', error);

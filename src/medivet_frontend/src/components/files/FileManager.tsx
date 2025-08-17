@@ -64,7 +64,8 @@ const FileManager: React.FC<FileManagerProps> = ({
         await Promise.all([
           loadFiles(),
           loadSharedFiles(),
-          showProfilePhotoSection ? loadProfilePhoto() : Promise.resolve()
+          // Skip loadProfilePhoto here since we don't have access to auth store
+          Promise.resolve()
         ]);
       } catch (error) {
         console.error('Failed to initialize file manager:', error);
@@ -319,7 +320,8 @@ const FileManager: React.FC<FileManagerProps> = ({
                 currentPhotoUrl={profilePhotoUrl}
                 onUploadComplete={(url) => {
                   // Refresh profile photo
-                  loadProfilePhoto();
+                  // Note: Profile photo refresh will be handled by the ProfilePhotoUpload component
+                  console.log('Profile photo uploaded:', url);
                 }}
                 onUploadError={(error) => {
                   console.error('Profile photo upload error:', error);
