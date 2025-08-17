@@ -76,7 +76,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     try {
       const { identity } = useAuthStore.getState();
       if (!identity) throw new Error('User not authenticated');
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const logs = await actor.get_user_access_logs();
       return logs;
     } catch (error: any) {
@@ -102,7 +102,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       if (patientPrincipal) {
         // For now, check if we already have the profile
@@ -174,7 +174,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call backend with PatientProfile object
       const patientProfile = {
@@ -185,7 +185,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         medicalHistory: medicalHistory ? [medicalHistory] : [],
         allergies: allergies ? [allergies] : [],
         medications: currentMedications ? [currentMedications] : [],
-        gender: 'Not specified' // Default value since it's required
+        gender: 'Not specified', // Default value since it's required
+        profilePhoto: [] // Optional profile photo field (empty array for null)
       };
       
       const result = await actor.createPatientProfile(patientProfile);
@@ -231,18 +232,22 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
-      // Call backend with all required parameters
-      await actor.update_patient_profile(
-        fullName, 
-        dateOfBirth, 
-        contactInfo, 
-        emergencyContact,
-        medicalHistory ? [medicalHistory] : [],
-        allergies ? [allergies] : [],
-        currentMedications ? [currentMedications] : []
-      );
+      // Call backend with PatientProfile object
+      const patientProfile = {
+        fullName,
+        dob: dateOfBirth,
+        contact: contactInfo,
+        emergency: emergencyContact,
+        medicalHistory: medicalHistory ? [medicalHistory] : [],
+        allergies: allergies ? [allergies] : [],
+        medications: currentMedications ? [currentMedications] : [],
+        gender: 'Not specified', // Default value since it's required
+        profilePhoto: [] // Optional profile photo field (empty array for null)
+      };
+      
+      await actor.updatePatientProfile(patientProfile);
       
       // Update local state with the updated profile including our extended fields
       const profile: PatientProfile = {
@@ -276,7 +281,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Fetch own provider profile
       const result = await actor.getProviderProfile();
@@ -316,14 +321,15 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call backend with ProviderProfile object
       const providerProfile = {
         name: fullName,
         specialty: specialization,
         license: licenseNumber,
-        contact: contactInfo
+        contact: contactInfo,
+        profilePhoto: [] // Optional profile photo field (empty array for null)
       };
       
       const result = await actor.createProviderProfile(providerProfile);
@@ -367,15 +373,18 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
-      // Call backend with only the parameters it expects
-      await actor.update_healthcare_provider_profile(
-        fullName, 
-        specialization, 
-        licenseNumber, 
-        contactInfo
-      );
+      // Call backend with ProviderProfile object
+      const providerProfile = {
+        name: fullName,
+        specialty: specialization,
+        license: licenseNumber,
+        contact: contactInfo,
+        profilePhoto: [] // Optional profile photo field (empty array for null)
+      };
+      
+      await actor.updateProviderProfile(providerProfile);
       
       // Update local state with the updated profile including our extended fields
       const profile: HealthcareProviderProfile = {
@@ -409,7 +418,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Convert expiry date to nanoseconds if provided
       const expiryTime = expiresAt ? [BigInt(new Date(expiresAt).getTime()) * BigInt(1000000)] : [];
@@ -438,7 +447,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const hasPermission = await actor.check_profile_permission(userPrincipal, permission);
       
       return hasPermission;
@@ -456,7 +465,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const filteredProfile = await actor.get_patient_profile_with_permissions(patientPrincipal);
       
       set({ isLoading: false });
@@ -475,7 +484,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const permissions = await actor.get_profile_permissions();
       
       return permissions;
@@ -493,7 +502,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       await actor.revoke_profile_permission(userPrincipal);
       
       // Refresh the current profile to get updated permissions
@@ -515,7 +524,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const hasPermissions = await actor.has_any_profile_permissions();
       
       return hasPermissions;
@@ -533,7 +542,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const permissionsData = await actor.get_permissions_granted_to_me();
       
       // Transform the data to a more usable format

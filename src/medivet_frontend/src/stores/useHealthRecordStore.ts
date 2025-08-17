@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Principal } from '@dfinity/principal';
 import { HealthRecord, AccessLog, UserRole } from '../types';
 import useAuthStore from './useAuthStore';
 import { createAuthenticatedActor } from '../services/actorService';
@@ -102,7 +103,7 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call the backend method
       const result = await actor.getHealthRecords();
@@ -148,15 +149,83 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   fetchSharedRecords: async () => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('fetchSharedRecords not yet implemented - backend method get_shared_health_records not available');
+      const { identity, userRole, refreshUserRole } = useAuthStore.getState();
       
-      // Placeholder empty array for now
-      set({ 
-        sharedRecords: [], 
-        isLoading: false, 
-        lastSharedFetchTime: Date.now()
-      });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Check if user is a provider to access shared records
+      if (userRole !== UserRole.HealthcareProvider) {
+        // Try to refresh user role first
+        await refreshUserRole();
+        const updatedState = useAuthStore.getState();
+        
+        if (updatedState.userRole !== UserRole.HealthcareProvider) {
+          // Instead of throwing an error, just return empty results for non-providers
+          console.log('User is not a healthcare provider, returning empty shared records');
+          set({ 
+            sharedRecords: [], 
+            isLoading: false, 
+            lastSharedFetchTime: Date.now()
+          });
+          return;
+        }
+      }
+      
+      // Get the authenticated actor
+      const { actor } = await createAuthenticatedActor(identity);
+      
+      // Call the backend method
+      const result = await actor.getSharedHealthRecords();
+      
+      if ('ok' in result) {
+        // Transform backend records to frontend format
+        const transformedRecords = result.ok.map((record: any) => {
+          // Safely convert timestamps
+          const createdAtDate = safeTimestampToDate(record.createdAt);
+          const modifiedAtDate = safeTimestampToDate(record.modifiedAt);
+          
+          return {
+            id: Number(record.id),
+            title: record.title,
+            category: record.category,
+            provider: 'Unknown', // Backend doesn't store provider field
+            record_type: record.category, // Use category as record type
+            record_date: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            encrypted_content: new Uint8Array(record.encryptedBlob),
+            attachment_id: record.attachment ? Number(record.attachment) : null,
+            user_permissions: record.userPermissions || [], // Transform permissions
+            access_count: Number(record.accessCount),
+            created_at: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            updated_at: modifiedAtDate ? modifiedAtDate.getTime() : Date.now(),
+            owner: record.owner.toString()
+          };
+        });
+        
+        // Decrypt each record
+        const decryptedRecords = await Promise.all(
+          transformedRecords.map(async (record: HealthRecord) => {
+            try {
+              return await get().decryptHealthRecord(record);
+            } catch (error) {
+              console.error(`Failed to decrypt record ${record.id}:`, error);
+              return {
+                ...record,
+                content: 'Unable to decrypt content - insufficient permissions'
+              } as HealthRecord & { content: string };
+            }
+          })
+        );
+        
+        set({ 
+          sharedRecords: decryptedRecords, 
+          isLoading: false, 
+          lastSharedFetchTime: Date.now() 
+        });
+      } else {
+        throw new Error(result.err || 'Failed to fetch shared records');
+      }
     } catch (error: any) {
       console.error("Error fetching shared health records:", error);
       set({ error: error.message, isLoading: false });
@@ -167,14 +236,68 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   fetchSharedRecordsWithoutDecryption: async () => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('fetchSharedRecordsWithoutDecryption not yet implemented');
+      const { identity, userRole, refreshUserRole } = useAuthStore.getState();
       
-      set({ 
-        sharedRecords: [], 
-        isLoading: false, 
-        lastSharedFetchTime: Date.now() 
-      });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Check if user is a provider
+      if (userRole !== UserRole.HealthcareProvider) {
+        // Try to refresh user role first
+        await refreshUserRole();
+        const updatedState = useAuthStore.getState();
+        
+        if (updatedState.userRole !== UserRole.HealthcareProvider) {
+          // Instead of throwing an error, just return empty results for non-providers
+          console.log('User is not a healthcare provider, returning empty shared records');
+          set({ 
+            sharedRecords: [], 
+            isLoading: false, 
+            lastSharedFetchTime: Date.now()
+          });
+          return;
+        }
+      }
+      
+      // Get the authenticated actor
+      const { actor } = await createAuthenticatedActor(identity);
+      
+      // Call the backend method
+      const result = await actor.getSharedHealthRecords();
+      
+      if ('ok' in result) {
+        // Transform backend records to frontend format without decrypting
+        const transformedRecords = result.ok.map((record: any) => {
+          // Safely convert timestamps
+          const createdAtDate = safeTimestampToDate(record.createdAt);
+          const modifiedAtDate = safeTimestampToDate(record.modifiedAt);
+          
+          return {
+            id: Number(record.id),
+            title: record.title,
+            category: record.category,
+            provider: 'Unknown', // Backend doesn't store provider field
+            record_type: record.category, // Use category as record type
+            record_date: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            encrypted_content: new Uint8Array(record.encryptedBlob),
+            attachment_id: record.attachment ? Number(record.attachment) : null,
+            user_permissions: record.userPermissions || [], // Transform permissions
+            access_count: Number(record.accessCount),
+            created_at: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            updated_at: modifiedAtDate ? modifiedAtDate.getTime() : Date.now(),
+            owner: record.owner.toString()
+          };
+        });
+        
+        set({ 
+          sharedRecords: transformedRecords, 
+          isLoading: false, 
+          lastSharedFetchTime: Date.now() 
+        });
+      } else {
+        throw new Error(result.err || 'Failed to fetch shared records');
+      }
     } catch (error: any) {
       console.error("Error fetching shared health records:", error);
       set({ error: error.message, isLoading: false });
@@ -191,7 +314,7 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // First, create the record with placeholder content
       // This is needed so the record exists in the backend before we can encrypt
@@ -265,7 +388,7 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Find the current record to get its existing data
       const currentRecord = get().records.find(r => r.id === id);
@@ -321,7 +444,7 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // This method exists in the backend
       await actor.deleteRecord(BigInt(id));
@@ -339,10 +462,34 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   grantAccess: async (recordId, userPrincipal) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('grantAccess not yet implemented - backend method grant_access not available');
+      const { identity } = useAuthStore.getState();
       
-      set({ isLoading: false });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const { actor } = await createAuthenticatedActor(identity);
+      
+      // Convert userPrincipal string to Principal
+      const userPrincipalObj = Principal.fromText(userPrincipal);
+      
+      // Grant basic view-only access by default
+      const basicPermissions = ['ReadBasicInfo']; // Default to basic info access
+      
+      // Call the backend method
+      const result = await actor.grantSpecificAccess(
+        BigInt(recordId),
+        userPrincipalObj,
+        basicPermissions,
+        [] // No expiry
+      );
+      
+      if ('ok' in result) {
+        set({ isLoading: false });
+      } else {
+        throw new Error(result.err || 'Failed to grant access');
+      }
     } catch (error: any) {
       console.error("Error granting access:", error);
       set({ error: error.message, isLoading: false });
@@ -353,10 +500,40 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   grantSpecificAccess: async (recordId, userPrincipal, permissions, expiryDate) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('grantSpecificAccess not yet implemented - backend method grant_specific_access not available');
+      const { identity } = useAuthStore.getState();
       
-      set({ isLoading: false });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const { actor } = await createAuthenticatedActor(identity);
+      
+      // Convert userPrincipal string to Principal
+      const userPrincipalObj = Principal.fromText(userPrincipal);
+      
+      // Convert frontend permission strings to backend enum format
+      const backendPermissions = permissions.map(p => ({ [p]: null }));
+      
+      // Convert expiry date to timestamp if provided
+      let expiryTimestamp = null;
+      if (expiryDate) {
+        expiryTimestamp = new Date(expiryDate).getTime();
+      }
+      
+      // Call the backend method
+      const result = await actor.grantSpecificAccess(
+        BigInt(recordId),
+        userPrincipalObj,
+        backendPermissions,
+        expiryTimestamp ? [expiryTimestamp] : []
+      );
+      
+      if ('ok' in result) {
+        set({ isLoading: false });
+      } else {
+        throw new Error(result.err || 'Failed to grant specific access');
+      }
     } catch (error: any) {
       console.error("Error granting specific access:", error);
       set({ error: error.message, isLoading: false });
@@ -367,10 +544,29 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   revokeAccess: async (recordId, userPrincipal) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('revokeAccess not yet implemented - backend method revoke_access not available');
+      const { identity } = useAuthStore.getState();
       
-      set({ isLoading: false });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const { actor } = await createAuthenticatedActor(identity);
+      
+      // Convert userPrincipal string to Principal
+      const userPrincipalObj = Principal.fromText(userPrincipal);
+      
+      // Call the backend method
+      const result = await actor.revokeAccess(
+        BigInt(recordId),
+        userPrincipalObj
+      );
+      
+      if ('ok' in result) {
+        set({ isLoading: false });
+      } else {
+        throw new Error(result.err || 'Failed to revoke access');
+      }
     } catch (error: any) {
       console.error("Error revoking access:", error);
       set({ error: error.message, isLoading: false });
@@ -388,7 +584,7 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call the backend method
       const result = await actor.getRecordAccessLogs(BigInt(recordId));

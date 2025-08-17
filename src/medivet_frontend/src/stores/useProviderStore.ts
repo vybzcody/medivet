@@ -35,7 +35,7 @@ const useProviderStore = create<ProviderState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call the backend method
       const result = await actor.getAccessLogs();
@@ -75,7 +75,7 @@ const useProviderStore = create<ProviderState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call the backend method
       const result = await actor.getMonetizableRecords();
@@ -122,7 +122,7 @@ const useProviderStore = create<ProviderState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Call the backend method
       const result = await actor.queryRecord(BigInt(recordId));

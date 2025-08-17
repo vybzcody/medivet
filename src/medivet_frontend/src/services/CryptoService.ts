@@ -142,7 +142,7 @@ export class CryptoService {
       if (!identity) {
         throw new Error('User not authenticated');
       }
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Fetch encrypted key from backend (no record ID needed - pure identity-based)
       console.log('Requesting encrypted key for user:', owner);

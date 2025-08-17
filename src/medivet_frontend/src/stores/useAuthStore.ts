@@ -7,6 +7,7 @@ import { HttpAgent } from '@dfinity/agent';
 import { UserRole } from '../types';
 import { Actor, Identity } from '@dfinity/agent';
 import { createAuthenticatedActor, clearAuthenticatedActor } from '../services/actorService';
+import { fileService } from '../services/fileService';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -49,10 +50,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false 
         });
         
+        // Initialize file service with the authenticated identity
+        try {
+          await fileService.initializeVaultActor(identity);
+          console.log('File service initialized during auth initialization');
+        } catch (fileError: any) {
+          console.error('Failed to initialize file service:', fileError);
+        }
+        
         // Then try to get user information separately
         try {
           // Create an authenticated actor using our actor service
-          const authenticatedActor = await createAuthenticatedActor(identity);
+          const { actor: authenticatedActor } = await createAuthenticatedActor(identity);
           
           // Use the authenticated actor to get the full user information
           const userResult = await authenticatedActor.getUser();
@@ -133,12 +142,20 @@ const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false 
       });
       
+      // Initialize file service with the authenticated identity
+      try {
+        await fileService.initializeVaultActor(identity);
+        console.log('File service initialized during login');
+      } catch (fileError: any) {
+        console.error('Failed to initialize file service:', fileError);
+      }
+      
       // Now try to get user information with the authenticated identity
       try {
         console.log('Fetching user information...');
         
         // Create an authenticated actor using our actor service
-        const authenticatedActor = await createAuthenticatedActor(identity);
+        const { actor: authenticatedActor } = await createAuthenticatedActor(identity);
         
         const userResult = await authenticatedActor.getUser();
         console.log('User result:', userResult);
@@ -214,7 +231,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       // Create an authenticated actor using our actor service
-      const authenticatedActor = await createAuthenticatedActor(identity);
+      const { actor: authenticatedActor } = await createAuthenticatedActor(identity);
       
       // Convert frontend UserRole to backend Role variant format
       let backendRole;
@@ -258,7 +275,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
     
     try {
       // Create an authenticated actor using our actor service
-      const authenticatedActor = await createAuthenticatedActor(state.identity);
+      const { actor: authenticatedActor } = await createAuthenticatedActor(state.identity);
       
       // Get the full user information
       const userResult = await authenticatedActor.getUser();

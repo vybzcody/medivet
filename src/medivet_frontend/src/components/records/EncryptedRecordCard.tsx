@@ -36,7 +36,7 @@ const EncryptedRecordCard: React.FC<EncryptedRecordCardProps> = ({
 
     try {
       // First, log the access attempt
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const accessLogged = await actor.log_record_access(BigInt(record.id));
       
       if (!accessLogged) {

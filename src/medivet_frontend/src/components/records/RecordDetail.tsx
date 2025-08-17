@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Separator from '../ui/Separator';
+import ShareRecordModal from '../dashboard/ShareRecordModal';
 import { 
   FileText, 
   ArrowLeft, 
@@ -17,47 +18,49 @@ import {
 } from 'lucide-react';
 import { formatDistance } from 'date-fns';
 import useAuthStore from '../../stores/useAuthStore';
-
-// Mock record data
-const mockRecords = [
-  {
-    id: 1,
-    title: 'Annual Physical Exam 2024',
-    category: 'General Health',
-    status: 'Monetizable',
-    owner: 'patient-123',
-    createdAt: Date.now() - 86400000 * 8,
-    accessCount: 5,
-    encryptedBlob: new Uint8Array([1, 2, 3, 4, 5]),
-    sharedWith: [
-      {
-        provider: 'provider-456',
-        expiresAt: Date.now() + 86400000 * 30
-      }
-    ]
-  },
-  {
-    id: 2,
-    title: 'Blood Glucose Monitoring',
-    category: 'Diabetes Care',
-    status: 'Monetizable',
-    owner: 'patient-789',
-    createdAt: Date.now() - 86400000 * 1,
-    accessCount: 12,
-    encryptedBlob: new Uint8Array([6, 7, 8, 9, 10]),
-    sharedWith: []
-  }
-];
+import useHealthRecordStore from '../../stores/useHealthRecordStore';
+import { UserRole, HealthRecord, UserPermission } from '../../types';
 
 const RecordDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { principal, userRole } = useAuthStore();
+  const { 
+    records, 
+    sharedRecords, 
+    fetchRecords, 
+    fetchSharedRecords,
+    isLoading 
+  } = useHealthRecordStore();
+  
   const [decrypting, setDecrypting] = useState(false);
   const [decrypted, setDecrypted] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const recordId = parseInt(id || '0');
-  const record = mockRecords.find(r => r.id === recordId);
+  
+  // Find record in owned or shared records
+  const record = [...records, ...sharedRecords].find((r: HealthRecord) => r.id === recordId);
+  
+  useEffect(() => {
+    if (principal) {
+      fetchRecords();
+      if (userRole === UserRole.HealthcareProvider) {
+        fetchSharedRecords();
+      }
+    }
+  }, [principal, userRole, fetchRecords, fetchSharedRecords]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading health record...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!record) {
     return (
@@ -78,7 +81,7 @@ const RecordDetail: React.FC = () => {
   }
 
   const isOwner = principal === record.owner;
-  const hasAccess = isOwner || record.sharedWith?.some(s => s.provider === principal);
+  const hasAccess = isOwner || record.user_permissions?.some((permission: UserPermission) => permission.user === principal);
 
   const handleDecrypt = async () => {
     if (!principal) return;
@@ -119,8 +122,8 @@ const RecordDetail: React.FC = () => {
         </Button>
         
         <div className="flex items-center space-x-2">
-          <Badge variant={getStatusColor(record.status) as any}>
-            {record.status}
+          <Badge variant="success">
+            Active
           </Badge>
           {isOwner && <Badge variant="secondary">Your Record</Badge>}
         </div>
@@ -136,7 +139,7 @@ const RecordDetail: React.FC = () => {
                 <span>{record.title}</span>
               </h1>
               <p className="text-lg text-gray-600 mt-2">
-                {record.category} • Created {formatDistance(new Date(record.createdAt), new Date(), { addSuffix: true })}
+                {record.category} • Created {formatDistance(new Date(record.created_at), new Date(), { addSuffix: true })}
               </p>
             </div>
           </div>
@@ -146,11 +149,11 @@ const RecordDetail: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center space-x-2 text-sm">
               <Calendar className="h-4 w-4 text-gray-500" />
-              <span>Created: {new Date(record.createdAt).toLocaleDateString()}</span>
+              <span>Created: {new Date(record.created_at).toLocaleDateString()}</span>
             </div>
             <div className="flex items-center space-x-2 text-sm">
               <Eye className="h-4 w-4 text-gray-500" />
-              <span>Accessed: {record.accessCount} times</span>
+              <span>Accessed: {record.access_count} times</span>
             </div>
             <div className="flex items-center space-x-2 text-sm">
               <User className="h-4 w-4 text-gray-500" />
@@ -161,18 +164,18 @@ const RecordDetail: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center space-x-2 text-sm">
               <Shield className="h-4 w-4 text-gray-500" />
-              <span>Status: {record.status}</span>
+              <span>Status: Active</span>
             </div>
             <div className="flex items-center space-x-2 text-sm">
               <Share2 className="h-4 w-4 text-gray-500" />
-              <span>Shared with: {record.sharedWith?.length || 0} providers</span>
+              <span>Shared with: {record.user_permissions?.length || 0} providers</span>
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm font-medium mb-1">Data Size</p>
-              <p className="text-lg">{record.encryptedBlob.length} bytes</p>
+              <p className="text-lg">{record.encrypted_content.length} bytes</p>
             </div>
           </div>
         </div>
@@ -244,7 +247,7 @@ const RecordDetail: React.FC = () => {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm">
                       <strong>Patient:</strong> Anonymous (ID: {record.owner.slice(-8)})<br />
-                      <strong>Date:</strong> {new Date(record.createdAt).toLocaleDateString()}<br />
+                      <strong>Date:</strong> {new Date(record.created_at).toLocaleDateString()}<br />
                       <strong>Category:</strong> {record.category}<br />
                       <strong>Title:</strong> {record.title}
                     </p>
@@ -262,10 +265,15 @@ const RecordDetail: React.FC = () => {
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
-                  <Button variant="outline">
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share
-                  </Button>
+                  {isOwner && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowShareModal(true)}
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -287,7 +295,7 @@ const RecordDetail: React.FC = () => {
       )}
 
       {/* Sharing Information */}
-      {record.sharedWith && record.sharedWith.length > 0 && (
+      {record.user_permissions && record.user_permissions.length > 0 && (
         <Card className="p-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Shared Access</h2>
@@ -296,17 +304,20 @@ const RecordDetail: React.FC = () => {
             </p>
           </div>
           <div className="space-y-3">
-            {record.sharedWith.map((share, index) => (
+            {record.user_permissions.map((permission: UserPermission, index: number) => (
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <User className="h-4 w-4 text-gray-500" />
                   <div>
-                    <p className="font-medium">Provider ID: {share.provider.slice(-8)}</p>
+                    <p className="font-medium">Provider ID: {permission.user.slice(-8)}</p>
                     <p className="text-sm text-gray-600">
-                      {share.expiresAt 
-                        ? `Expires ${formatDistance(new Date(share.expiresAt), new Date(), { addSuffix: true })}`
+                      {permission.expires_at 
+                        ? `Expires ${formatDistance(new Date(Number(permission.expires_at) / 1000000), new Date(), { addSuffix: true })}`
                         : 'No expiration'
                       }
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Permissions: {permission.permissions.join(', ')}
                     </p>
                   </div>
                 </div>
@@ -315,6 +326,15 @@ const RecordDetail: React.FC = () => {
             ))}
           </div>
         </Card>
+      )}
+      
+      {/* Share Record Modal */}
+      {showShareModal && record && isOwner && (
+        <ShareRecordModal
+          record={record}
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
     </div>
   );

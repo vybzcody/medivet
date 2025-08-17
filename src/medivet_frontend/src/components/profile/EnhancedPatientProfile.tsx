@@ -6,15 +6,20 @@ import Label from '../ui/Label';
 import Textarea from '../ui/Textarea';
 import Switch from '../ui/Switch';
 import Badge from '../ui/Badge';
-import { User, Save, Shield, DollarSign, Calendar, Phone, Mail, AlertCircle } from 'lucide-react';
+import ProfilePhotoUpload from '../common/ProfilePhotoUpload';
+import FileManager from '../files/FileManager';
+import { User, Save, Shield, DollarSign, Calendar, Phone, Mail, AlertCircle, Files } from 'lucide-react';
 import useAuthStore from '../../stores/useAuthStore';
 import useProfileStore from '../../stores/useProfileStore';
+import useFileStore from '../../stores/useFileStore';
 import { PatientProfile as PatientProfileType } from '../../types';
 
 const EnhancedPatientProfile: React.FC = () => {
   const { principal } = useAuthStore();
   const { patientProfile, fetchPatientProfile, updatePatientProfile, isLoading, error } = useProfileStore();
+  const { profilePhotoUrl, loadProfilePhoto } = useFileStore();
   const [saving, setSaving] = useState(false);
+  const [showFileManager, setShowFileManager] = useState(false);
   const [formData, setFormData] = useState<Partial<PatientProfileType>>({
     full_name: '',
     date_of_birth: '',
@@ -29,7 +34,8 @@ const EnhancedPatientProfile: React.FC = () => {
   // Fetch profile data on component mount
   useEffect(() => {
     fetchPatientProfile();
-  }, [fetchPatientProfile]);
+    loadProfilePhoto();
+  }, [fetchPatientProfile, loadProfilePhoto]);
 
   useEffect(() => {
     if (patientProfile) {
@@ -105,6 +111,43 @@ const EnhancedPatientProfile: React.FC = () => {
           )}
         </Button>
       </div>
+
+      {/* Profile Photo Section */}
+      <Card className="p-6">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <User className="h-5 w-5 mr-2" />
+            Profile Photo
+          </h2>
+          <p className="text-gray-600 mt-1">
+            Upload and manage your profile photo
+          </p>
+        </div>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-8 space-y-6 lg:space-y-0">
+          <ProfilePhotoUpload
+            currentPhotoUrl={profilePhotoUrl}
+            onUploadComplete={(url) => {
+              console.log('Profile photo uploaded successfully:', url);
+              // Refresh profile photo
+              loadProfilePhoto();
+            }}
+            onUploadError={(error) => {
+              console.error('Profile photo upload error:', error);
+            }}
+            size="large"
+            className="lg:flex-shrink-0"
+          />
+          <div className="flex-1 space-y-2">
+            <h3 className="font-medium text-gray-900">Photo Guidelines</h3>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Use a clear, recent photo of yourself</li>
+              <li>• Ensure good lighting and focus</li>
+              <li>• Supported formats: JPEG, PNG, WebP</li>
+              <li>• Maximum file size: 5MB</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Basic Information */}
@@ -289,6 +332,71 @@ const EnhancedPatientProfile: React.FC = () => {
             <p className="text-sm text-purple-700">HIPAA Compliant</p>
           </div>
         </div>
+      </Card>
+
+      {/* File Management Section */}
+      <Card className="p-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <Files className="h-5 w-5 mr-2" />
+                File Management
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Upload, organize, and manage your files securely
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowFileManager(!showFileManager)}
+              variant={showFileManager ? "secondary" : "primary"}
+              className="min-w-[120px]"
+            >
+              {showFileManager ? 'Hide Manager' : 'Show Manager'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Quick File Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-blue-50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">-</div>
+            <p className="text-sm text-blue-700">Total Files</p>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">-</div>
+            <p className="text-sm text-green-700">Storage Used</p>
+          </div>
+          <div className="bg-purple-50 rounded-lg p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">-</div>
+            <p className="text-sm text-purple-700">Shared Files</p>
+          </div>
+        </div>
+
+        {showFileManager && (
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <FileManager
+              className="border-0"
+              showProfilePhotoSection={false}
+              initialView="all"
+            />
+          </div>
+        )}
+
+        {!showFileManager && (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <Files className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">File Manager</h3>
+            <p className="text-gray-600 mb-4">
+              Click "Show Manager" to access your file management interface
+            </p>
+            <div className="space-y-2 text-sm text-gray-500">
+              <p>• Upload and organize files securely</p>
+              <p>• Share files with healthcare providers</p>
+              <p>• Manage file permissions and access</p>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

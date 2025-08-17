@@ -3,6 +3,7 @@ import { X, User, Calendar, Phone, AlertTriangle, Pill, FileText, Shield, Clock,
 import { PatientProfile, UserPermission, PermissionType } from '../../types';
 import useProfileStore from '../../stores/useProfileStore';
 import useAuthStore from '../../stores/useAuthStore';
+import useFileStore from '../../stores/useFileStore';
 import { useToast } from '../../hooks/useToast';
 import ShareProfileModal from './ShareProfileModal';
 
@@ -21,27 +22,36 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 }) => {
   const { patientProfiles, fetchPatientProfile } = useProfileStore();
   const { identity } = useAuthStore();
+  const { loadProfilePhoto, profilePhotoUrl } = useFileStore();
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null);
+  const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     if (isOpen && patientPrincipal) {
       setLoading(true);
-      fetchPatientProfile(patientPrincipal)
+      // Load both profile data and profile photo
+      Promise.all([
+        fetchPatientProfile(patientPrincipal),
+        loadProfilePhoto(patientPrincipal).catch(() => null) // Don't fail if no photo
+      ])
         .then(() => {
           const profile = patientProfiles.find(p => p.owner === patientPrincipal);
           setPatientProfile(profile || null);
+          // The profile photo will be in the profilePhotoUrl from useFileStore
+          setPatientPhotoUrl(profilePhotoUrl);
         })
         .catch(error => {
           console.error('Failed to fetch patient profile:', error);
           setPatientProfile(null);
+          setPatientPhotoUrl(null);
         })
         .finally(() => {
           setLoading(false);
         });
     }
-  }, [isOpen, patientPrincipal, fetchPatientProfile, patientProfiles]);
+  }, [isOpen, patientPrincipal, fetchPatientProfile, patientProfiles, loadProfilePhoto, profilePhotoUrl]);
 
   const { showError, showInfo } = useToast();
 
@@ -155,6 +165,23 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             </div>
           ) : patientProfile ? (
             <div className="space-y-6">
+              {/* Profile Photo Section */}
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+                  {patientPhotoUrl ? (
+                    <img
+                      src={patientPhotoUrl}
+                      alt={`${patientProfile.full_name}'s profile`}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-gray-400" />
+                  )}
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">{patientProfile.full_name}</h2>
+                <p className="text-gray-600 text-sm mt-1">Patient Profile</p>
+              </div>
+
               {/* Basic Information Section */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-4">

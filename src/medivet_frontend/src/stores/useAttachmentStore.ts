@@ -28,7 +28,7 @@ const useAttachmentStore = create<AttachmentState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       const attachmentId = await actor.upload_attachment(content);
       set({ isLoading: false });
@@ -51,7 +51,7 @@ const useAttachmentStore = create<AttachmentState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       const attachment = await actor.get_attachment(BigInt(id));
       const result = attachment[0] ? new Uint8Array(attachment[0] as unknown as ArrayBuffer) : null;
