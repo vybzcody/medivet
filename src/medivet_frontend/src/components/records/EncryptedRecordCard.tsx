@@ -5,6 +5,7 @@ import { CryptoService } from '../../services/CryptoService';
 import { createAuthenticatedActor } from '../../services/actorService';
 import useAuthStore from '../../stores/useAuthStore';
 import PatientProfileModal from '../modals/PatientProfileModal';
+import { formatTimestamp } from '../../utils/dateUtils';
 
 interface EncryptedRecordCardProps {
   record: HealthRecord;
@@ -64,10 +65,6 @@ const EncryptedRecordCard: React.FC<EncryptedRecordCardProps> = ({
     }
   };
 
-  const formatDate = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) / 1000000); // Convert nanoseconds to milliseconds
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
 
   const formatContent = (content: string) => {
     try {
@@ -126,7 +123,7 @@ const EncryptedRecordCard: React.FC<EncryptedRecordCardProps> = ({
             </div>
             <div className="flex items-center space-x-2">
               <Calendar className="h-4 w-4" />
-              <span>Created: {formatDate(record.record_date)}</span>
+              <span>Created: {formatTimestamp(record.record_date)}</span>
             </div>
             <div className="flex items-center space-x-2">
               <FileText className="h-4 w-4" />

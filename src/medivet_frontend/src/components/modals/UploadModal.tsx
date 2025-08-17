@@ -16,7 +16,7 @@ interface UploadModalProps {
 
 const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
   const { principal } = useAuthStore();
-  const { records } = useHealthRecordStore(); // Just use records for now
+  const { createRecord } = useHealthRecordStore();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
@@ -64,39 +64,26 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Simulate encryption process
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      // Create the health record using the store (this will handle encryption)
+      const recordId = await createRecord(
+        formData.title,
+        formData.category,
+        'Self-Upload', // provider
+        formData.category, // recordType
+        formData.description || `Uploaded files: ${uploadingFiles.map(f => f.name).join(', ')}`
+      );
 
-    // Create mock encrypted data
-    const mockEncryptedData = new Uint8Array([
-      Math.floor(Math.random() * 256),
-      Math.floor(Math.random() * 256),
-      Math.floor(Math.random() * 256),
-      Math.floor(Math.random() * 256),
-      Math.floor(Math.random() * 256)
-    ]);
-
-    // Add record to store
-    const newRecord = {
-      id: Date.now(), // Simple ID generation
-      owner: principal,
-      title: formData.title,
-      category: formData.category,
-      provider: '',
-      record_date: Date.now(),
-      record_type: formData.category,
-      encrypted_content: mockEncryptedData,
-      attachment_id: null,
-      user_permissions: [],
-      content: formData.description
-    };
-
-    // addRecord(newRecord); // Commented out for now
-    console.log('Would add record:', newRecord);
-
-    setUploading(false);
-    setUploadProgress(0);
-    alert(`Health record uploaded successfully! ${uploadingFiles.length} file(s) encrypted and stored.`);
+      setUploading(false);
+      setUploadProgress(0);
+      alert(`Health record uploaded successfully! Record ID: ${recordId}. ${uploadingFiles.length} file(s) encrypted and stored.`);
+    } catch (error) {
+      console.error('Error creating health record:', error);
+      setUploading(false);
+      setUploadProgress(0);
+      alert('Failed to upload health record. Please try again.');
+      return;
+    }
     
     onOpenChange(false);
     setFormData({
@@ -179,7 +166,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
           </div>
 
           {/* File upload area */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors hover:border-blue-500">
+          <div 
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors hover:border-blue-500 cursor-pointer"
+            onClick={() => document.getElementById('file-upload')?.click()}
+          >
             <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <p className="text-sm text-gray-600 mb-2">
               Drop files here or click to browse
@@ -192,11 +182,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
               className="hidden"
               id="file-upload"
             />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Button variant="outline" size="sm">
-                Choose Files
-              </Button>
-            </label>
+            <Button variant="outline" size="sm">
+              Choose Files
+            </Button>
             {uploadingFiles.length > 0 && (
               <div className="mt-4 space-y-2">
                 <p className="text-sm font-medium">Selected files:</p>

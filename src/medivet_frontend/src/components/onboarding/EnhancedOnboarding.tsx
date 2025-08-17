@@ -7,10 +7,10 @@ import Label from '../ui/Label';
 import Badge from '../ui/Badge';
 import { UserCircle, Stethoscope, Shield, ArrowRight } from 'lucide-react';
 import useAuthStore from '../../stores/useAuthStore';
-import { UserRoleValue } from '../../types';
+import { UserRoleValue, UserRoleType } from '../../types';
 
 interface RoleOption {
-  type: UserRoleValue;
+  type: UserRoleType;
   icon: React.ComponentType<any>;
   title: string;
   description: string;
@@ -19,7 +19,7 @@ interface RoleOption {
 }
 
 const Onboarding: React.FC = () => {
-  const [selectedRole, setSelectedRole] = useState<UserRoleValue | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRoleType | null>(null);
   const [profileData, setProfileData] = useState<any>({});
   const { login } = useAuthStore();
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ const Onboarding: React.FC = () => {
     }
   ];
 
-  const handleRoleSelect = (role: UserRoleValue) => {
+  const handleRoleSelect = (role: UserRoleType) => {
     setSelectedRole(role);
     setProfileData({});
   };
@@ -60,7 +60,7 @@ const Onboarding: React.FC = () => {
     setProfileData({ ...profileData, [field]: value });
   };
 
-  const handleMockLogin = (roleType: UserRoleValue) => {
+  const handleMockLogin = (roleType: UserRoleType) => {
     let mockProfile: any;
     let navigatePath: string;
 

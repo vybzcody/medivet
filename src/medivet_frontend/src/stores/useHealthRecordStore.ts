@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { HealthRecord, AccessLog } from '../types';
+import { HealthRecord, AccessLog, UserRole } from '../types';
 import useAuthStore from './useAuthStore';
 import { createAuthenticatedActor } from '../services/actorService';
 import { CryptoService } from '../services/CryptoService';
+import { safeTimestampToDate } from '../utils/dateUtils';
 
 interface HealthRecordState {
   records: HealthRecord[];
@@ -83,15 +84,61 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   fetchRecords: async () => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('fetchRecords not yet implemented - backend method get_health_records not available');
+      const { identity, userRole, refreshUserRole } = useAuthStore.getState();
       
-      // Placeholder empty array for now
-      set({ 
-        records: [], 
-        isLoading: false, 
-        lastFetchTime: Date.now() 
-      });
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Check if user has the correct role
+      if (userRole !== UserRole.Patient) {
+        // Try to refresh user role first
+        await refreshUserRole();
+        const updatedState = useAuthStore.getState();
+        
+        if (updatedState.userRole !== UserRole.Patient) {
+          throw new Error('Only patients can access health records. Please complete your profile setup.');
+        }
+      }
+      
+      // Get the authenticated actor
+      const actor = await createAuthenticatedActor(identity);
+      
+      // Call the backend method
+      const result = await actor.getHealthRecords();
+      
+      if ('ok' in result) {
+        // Transform backend records to frontend format
+        const transformedRecords = result.ok.map((record: any) => {
+          // Safely convert timestamps
+          const createdAtDate = safeTimestampToDate(record.createdAt);
+          const modifiedAtDate = safeTimestampToDate(record.modifiedAt);
+          
+          return {
+            id: Number(record.id),
+            title: record.title,
+            category: record.category,
+            provider: 'Unknown', // Backend doesn't store provider field
+            record_type: record.category, // Use category as record type
+            record_date: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            encrypted_content: new Uint8Array(record.encryptedBlob),
+            attachment_id: record.attachment ? Number(record.attachment) : null,
+            user_permissions: [], // Backend doesn't have user permissions in HealthRecord
+            access_count: Number(record.accessCount),
+            created_at: createdAtDate ? createdAtDate.getTime() : Date.now(),
+            updated_at: modifiedAtDate ? modifiedAtDate.getTime() : Date.now(),
+            owner: record.owner.toString()
+          };
+        });
+        
+        set({ 
+          records: transformedRecords, 
+          isLoading: false, 
+          lastFetchTime: Date.now() 
+        });
+      } else {
+        throw new Error(result.err || 'Failed to fetch records');
+      }
     } catch (error: any) {
       console.error("Error fetching health records:", error);
       set({ error: error.message, isLoading: false });
@@ -137,12 +184,70 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   createRecord: async (title, category, provider, recordType, content, attachmentId = null) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('createRecord not yet implemented - backend method create_health_record not available');
+      const { identity, principal } = useAuthStore.getState();
       
-      // Return placeholder ID
+      if (!identity || !principal) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const actor = await createAuthenticatedActor(identity);
+      
+      // First, create the record with placeholder content
+      // This is needed so the record exists in the backend before we can encrypt
+      const placeholderBlob = new Uint8Array([0]); // Minimal placeholder
+      
+      const createResult = await actor.createHealthRecord(
+        title,
+        category,
+        placeholderBlob,
+        attachmentId ? [BigInt(attachmentId)] : [],
+        { Monetizable: null } // Default status
+      );
+      
+      if (!('ok' in createResult)) {
+        throw new Error(createResult.err || 'Failed to create record');
+      }
+      
+      const recordId = Number(createResult.ok);
+      
+      // Now encrypt the content using the real record ID
+      const encryptedContent = await CryptoService.encryptWithRecordKey(
+        BigInt(recordId),
+        principal,
+        content
+      );
+      
+      // Convert encrypted content to blob (browser-compatible)
+      const binaryString = atob(encryptedContent);
+      const encryptedBlob = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        encryptedBlob[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Update the record with encrypted content
+      const updateResult = await actor.updateHealthRecord(
+        BigInt(recordId),
+        title,
+        category,
+        encryptedBlob
+      );
+      
+      if (!('ok' in updateResult)) {
+        // If update fails, we should delete the placeholder record
+        try {
+          await actor.deleteRecord(BigInt(recordId));
+        } catch (deleteError) {
+          console.warn('Failed to clean up placeholder record:', deleteError);
+        }
+        throw new Error(updateResult.err || 'Failed to encrypt and update record');
+      }
+      
+      // Refresh the records list
+      await get().fetchRecords();
+      
       set({ isLoading: false });
-      return 1;
+      return recordId;
     } catch (error: any) {
       console.error("Error creating health record:", error);
       set({ error: error.message, isLoading: false });
@@ -153,10 +258,51 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   updateRecord: async (id, content) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('updateRecord not yet implemented - backend method update_health_record not available');
+      const { identity, principal } = useAuthStore.getState();
       
-      set({ isLoading: false });
+      if (!identity || !principal) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const actor = await createAuthenticatedActor(identity);
+      
+      // Find the current record to get its existing data
+      const currentRecord = get().records.find(r => r.id === id);
+      if (!currentRecord) {
+        throw new Error('Record not found');
+      }
+      
+      // Encrypt the new content
+      const encryptedContent = await CryptoService.encryptWithRecordKey(
+        BigInt(id),
+        principal,
+        content
+      );
+      
+      // Convert encrypted content to blob (browser-compatible)
+      const binaryString = atob(encryptedContent);
+      const encryptedBlob = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        encryptedBlob[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Call the backend method
+      const result = await actor.updateHealthRecord(
+        BigInt(id),
+        currentRecord.title,
+        currentRecord.category,
+        encryptedBlob
+      );
+      
+      if ('ok' in result) {
+        // Refresh the records list
+        await get().fetchRecords();
+        
+        set({ isLoading: false });
+      } else {
+        throw new Error(result.err || 'Failed to update record');
+      }
     } catch (error: any) {
       console.error("Error updating health record:", error);
       set({ error: error.message, isLoading: false });
@@ -235,11 +381,34 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
   getRecordAccessLogs: async (recordId) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implement when backend method is available
-      console.warn('getRecordAccessLogs not yet implemented - backend method get_record_access_logs not available');
+      const { identity } = useAuthStore.getState();
       
-      set({ isLoading: false });
-      return [] as AccessLog[];
+      if (!identity) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Get the authenticated actor
+      const actor = await createAuthenticatedActor(identity);
+      
+      // Call the backend method
+      const result = await actor.getRecordAccessLogs(BigInt(recordId));
+      
+      if ('ok' in result) {
+        // Transform backend logs to frontend format
+        const transformedLogs = result.ok.map((log: any) => ({
+          id: Number(log.id),
+          record_id: Number(log.recordId),
+          provider_principal: log.provider.toString(),
+          access_time: Number(log.ts),
+          paid_amount: Number(log.paidMT),
+          action: 'Accessed' // Default action since backend doesn't specify
+        }));
+        
+        set({ isLoading: false });
+        return transformedLogs;
+      } else {
+        throw new Error(result.err || 'Failed to fetch access logs');
+      }
     } catch (error: any) {
       console.error("Error fetching record access logs:", error);
       set({ error: error.message, isLoading: false });

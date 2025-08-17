@@ -44,9 +44,40 @@ interface AccessLogItemProps {
 }
 
 const AccessLogItem: React.FC<AccessLogItemProps> = ({ log, showRecordId = false }) => {
-  // Convert bigint timestamp to Date
-  const date = new Date(Number(log.timestamp) / 1000000); // Convert nanoseconds to milliseconds
-  const formattedDate = format(date, 'MMM d, yyyy h:mm a');
+  // Convert bigint timestamp to Date with proper validation
+  const formatTimestamp = (timestamp: bigint): string => {
+    try {
+      let timestampMs = Number(timestamp);
+      
+      // Handle nanoseconds (convert to milliseconds)
+      if (timestampMs > 1000000000000000) {
+        // This looks like nanoseconds, convert to milliseconds
+        timestampMs = timestampMs / 1000000;
+      } else if (timestampMs < 1000000000000) {
+        // This looks like seconds, convert to milliseconds
+        timestampMs = timestampMs * 1000;
+      }
+      
+      // Validate the timestamp
+      if (isNaN(timestampMs) || timestampMs <= 0) {
+        return 'Invalid date';
+      }
+      
+      const date = new Date(timestampMs);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      return format(date, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, 'timestamp:', timestamp);
+      return 'Invalid date';
+    }
+  };
+  
+  const formattedDate = formatTimestamp(log.timestamp);
   
   const { label, icon } = formatAction(log.action);
   

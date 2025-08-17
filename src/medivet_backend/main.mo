@@ -3,14 +3,13 @@ import Blob "mo:base/Blob";
 import HashMap "mo:base/HashMap";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
+import Nat32 "mo:base/Nat32";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
-import Option "mo:base/Option";
 import Hex "./utils/Hex";
 import Nat8 "mo:base/Nat8";
-import Hash "mo:base/Hash";
 
 
 // -------------------- Admin Principal --------------------
@@ -87,8 +86,8 @@ private stable var nextLogId: Nat = 0;
 
 // -------------------- In-Memory Maps --------------------
 private transient var users = HashMap.HashMap<Principal, User>(0, Principal.equal, Principal.hash);
-private transient var records = HashMap.HashMap<Nat, HealthRecord>(0, Nat.equal, Hash.hash);
-private transient var logs = HashMap.HashMap<Nat, AccessLog>(0, Nat.equal, Hash.hash);
+private transient var records = HashMap.HashMap<Nat, HealthRecord>(0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
+private transient var logs = HashMap.HashMap<Nat, AccessLog>(0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
 
 
 // -------------------- Helpers --------------------
@@ -100,13 +99,73 @@ private func require(cond: Bool, err: Text): Result<()> {
   };
 };
 
-private func getUser(p: Principal): Result<User> =
+private func _getUser(p: Principal): Result<User> =
   switch (users.get(p)) {
     case (?u) #ok(u);
     case null #err("user not found");
   };
 
 // -------------------- User Management --------------------
+public shared ({ caller }) func getUser(): async Result<User> {
+  switch (require(not Principal.isAnonymous(caller), "anonymous")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  _getUser(caller)
+};
+
+public shared ({ caller }) func getPatientProfile(): async Result<PatientProfile> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Patient, "not a patient")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  switch (u.profile) {
+    case (?#Patient(profile)) { #ok(profile) };
+    case _ { #err("no patient profile found") };
+  };
+};
+
+public shared ({ caller }) func getProviderProfile(): async Result<ProviderProfile> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "not a provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  switch (u.profile) {
+    case (?#Provider(profile)) { #ok(profile) };
+    case _ { #err("no provider profile found") };
+  };
+};
+
+public shared ({ caller }) func updatePatientProfile(p: PatientProfile): async Result<()> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Patient, "role mismatch")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  users.put(caller, { u with profile = ?(#Patient p) });
+  #ok(());
+};
+
+public shared ({ caller }) func updateProviderProfile(p: ProviderProfile): async Result<()> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "role mismatch")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  users.put(caller, { u with profile = ?(#Provider p) });
+  #ok(());
+};
+
 public shared ({ caller }) func createUser(role: Role): async Result<()> {
   switch (require(not Principal.isAnonymous(caller), "anonymous")) {
     case (#err(msg)) { return #err(msg); };
@@ -130,7 +189,7 @@ public shared ({ caller }) func createUser(role: Role): async Result<()> {
 };
 
 public shared ({ caller }) func createPatientProfile(p: PatientProfile): async Result<()> {
-  let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
   
   switch (require(u.role == #Patient, "role mismatch")) {
     case (#err(msg)) { return #err(msg); };
@@ -142,7 +201,7 @@ public shared ({ caller }) func createPatientProfile(p: PatientProfile): async R
 };
 
 public shared ({ caller }) func createProviderProfile(p: ProviderProfile): async Result<()> {
-  let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
   
   switch (require(u.role == #Provider, "role mismatch")) {
     case (#err(msg)) { return #err(msg); };
@@ -159,7 +218,7 @@ public shared ({ caller }) func whitelistProvider(p: Principal): async Result<()
     case (#ok()) {};
   };
   
-  let u = switch (getUser(p)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  let u = switch (_getUser(p)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
   
   switch (require(u.role == #Provider, "not provider")) {
     case (#err(msg)) { return #err(msg); };
@@ -171,26 +230,84 @@ public shared ({ caller }) func whitelistProvider(p: Principal): async Result<()
 };
 
 // -------------------- Record CRUD --------------------
-// public shared ({ caller }) func createRecord(
-//   title: Text,
-//   category: Text,
-//   blob: Blob,
-//   attach: ?Nat,
-//   status: RecordStatus
-// ): async Result<Nat> {
-//   let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
-//   require(u.role == #Patient, "only patient");
-//   // let count = Iter.size(records.vals().filter(func(r) { r.owner == caller }));
-//   // require(count < MAX_RECORDS_PER_PATIENT, "max records reached");
-//   let id = nextRecordId;
-//   nextRecordId += 1;
-//   let rec: HealthRecord = {
-//     id; owner = caller; title; category; encryptedBlob = blob;
-//     attachment = attach; status; createdAt = Time.now(); accessCount = 0;
-//   };
-//   records.put(id, rec);
-//   #ok(id);
-// };
+public shared ({ caller }) func createHealthRecord(
+  title: Text,
+  category: Text,
+  encryptedBlob: Blob,
+  attach: ?Nat,
+  status: RecordStatus
+): async Result<Nat> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Patient, "only patient")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  // Count existing records for this user
+  let userRecords = Iter.filter(records.vals(), func(r: HealthRecord): Bool { r.owner == caller });
+  let count = Iter.size(userRecords);
+  
+  switch (require(count < MAX_RECORDS_PER_PATIENT, "max records reached")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let id = nextRecordId;
+  nextRecordId += 1;
+  let now = Time.now();
+  let rec: HealthRecord = {
+    id; 
+    owner = caller; 
+    title; 
+    category; 
+    encryptedBlob;
+    attachment = attach; 
+    status; 
+    createdAt = now;
+    modifiedAt = now;
+    accessCount = 0;
+  };
+  records.put(id, rec);
+  #ok(id);
+};
+
+public shared ({ caller }) func getHealthRecords(): async Result<[HealthRecord]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Patient, "only patient")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let userRecords = Iter.filter(records.vals(), func(r: HealthRecord): Bool { r.owner == caller });
+  #ok(Iter.toArray(userRecords));
+};
+
+public shared ({ caller }) func updateHealthRecord(
+  id: Nat,
+  title: Text,
+  category: Text,
+  encryptedBlob: Blob
+): async Result<()> {
+  let rec = switch (records.get(id)) { case (?r) r; case null return #err("not found"); };
+  
+  switch (require(rec.owner == caller, "not owner")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let updatedRec = {
+    rec with
+    title = title;
+    category = category;
+    encryptedBlob = encryptedBlob;
+    modifiedAt = Time.now();
+  };
+  
+  records.put(id, updatedRec);
+  #ok(());
+};
 
 public shared ({ caller }) func deleteRecord(id: Nat): async Result<()> {
   let rec = switch (records.get(id)) { case (?r) r; case null return #err("not found"); };
@@ -219,10 +336,53 @@ public shared ({ caller }) func flagRecord(id: Nat): async Result<()> {
   };
 };
 
+// -------------------- Access Logs Query --------------------
+public shared ({ caller }) func getAccessLogs(): async Result<[AccessLog]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "only provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let providerLogs = Iter.filter(logs.vals(), func(log: AccessLog): Bool { log.provider == caller });
+  #ok(Iter.toArray(providerLogs));
+};
+
+public shared ({ caller }) func getRecordAccessLogs(recordId: Nat): async Result<[AccessLog]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  // Allow both patients (record owners) and providers to view access logs
+  let recordLogs = Iter.filter(logs.vals(), func(log: AccessLog): Bool { 
+    log.recordId == recordId and 
+    (u.role == #Provider or 
+     (u.role == #Patient and 
+      (switch (records.get(recordId)) { 
+        case (?rec) rec.owner == caller; 
+        case null false; 
+      })
+     )
+    )
+  });
+  #ok(Iter.toArray(recordLogs));
+};
+
+public shared ({ caller }) func getMonetizableRecords(): async Result<[HealthRecord]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "only provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let monetizableRecords = Iter.filter(records.vals(), func(r: HealthRecord): Bool { r.status == #Monetizable });
+  #ok(Iter.toArray(monetizableRecords));
+};
+
 // -------------------- Pay-per-query & Logging --------------------
 public shared (msg) func queryRecord(id: Nat): async Result<HealthRecord> {
   let caller = msg.caller;
-  let u = switch (getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
   
   switch (require(u.role == #Provider, "only provider")) {
     case (#err(msg)) { return #err(msg); };
@@ -273,13 +433,34 @@ type VETKD_API = actor {
 };
 let management_canister: VETKD_API = actor ("aaaaa-aa");
 
-public shared func getSymmetricKeyVerificationKey(): async Text {
+// Identity-based encryption verification key
+public shared func symmetric_key_verification_key_for_user(): async Text {
   let { public_key } = await management_canister.vetkd_public_key({
     canister_id = null;
-    context = Text.encodeUtf8("medivet_symmetric_key");
-    key_id = { curve = #bls12_381_g2; name = "medivet_key" };
+    context = Text.encodeUtf8("medivet_user_encryption");
+    key_id = { curve = #bls12_381_g2; name = "test_key_1" };
   });
   Hex.encode(Blob.toArray(public_key));
+};
+
+// Identity-based encrypted key derivation
+public shared ({ caller }) func encrypted_symmetric_key_for_user(
+  transport_public_key: Blob
+): async Text {
+  // No need to verify specific records - this is pure identity-based encryption
+  // Any authenticated user can get their own encryption key
+  
+  // Use caller's principal as input for user-based encryption (pure identity-based)
+  let input = Principal.toBlob(caller);
+  
+  let { encrypted_key } = await (with cycles = 26_153_846_153) management_canister.vetkd_derive_key({
+    input;
+    context = Text.encodeUtf8("medivet_user_encryption");
+    key_id = { curve = #bls12_381_g2; name = "test_key_1" };
+    transport_public_key;
+  });
+  
+  Hex.encode(Blob.toArray(encrypted_key))
 };
 
 // public func fromNat(len : Nat, n : Nat) : [Nat8] {
@@ -334,8 +515,8 @@ system func preupgrade() {
 
 system func postupgrade() {
   users := HashMap.fromIter<Principal, User>(usersStable.vals(), 0, Principal.equal, Principal.hash);
-  records := HashMap.fromIter<Nat, HealthRecord>(recordsStable.vals(), 0, Nat.equal, Hash.hash);
-  logs := HashMap.fromIter<Nat, AccessLog>(logsStable.vals(), 0, Nat.equal, Hash.hash);
+  records := HashMap.fromIter<Nat, HealthRecord>(recordsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
+  logs := HashMap.fromIter<Nat, AccessLog>(logsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
   usersStable := [];
   recordsStable := [];
   logsStable := [];
