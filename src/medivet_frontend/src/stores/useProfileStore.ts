@@ -104,20 +104,16 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Get the authenticated actor
       const actor = await createAuthenticatedActor(identity);
       
-      let profileResult;
       if (patientPrincipal) {
-        // Fetch specific patient profile by principal
-        // Note: This would require a backend method to get patient profile by principal
-        // For now, we'll simulate this by checking if we already have the profile
+        // For now, check if we already have the profile
         const existingProfile = get().patientProfiles.find(p => p.owner === patientPrincipal);
         if (existingProfile) {
           set({ isLoading: false });
           return;
         }
         
-        // In a real implementation, this would be:
-        // profileResult = await actor.get_patient_profile_by_principal(patientPrincipal);
-        // For now, we'll create a mock profile
+        // This would require a method to get another patient's profile
+        // For now, create a mock profile
         const mockProfile: PatientProfile = {
           owner: patientPrincipal,
           full_name: "Patient Name",
@@ -137,32 +133,29 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         });
         return;
       } else {
-        // TODO: Implement when backend method is available
-        console.warn('fetchPatientProfile not yet implemented - backend method get_patient_profile not available');
-        set({ patientProfile: null, isLoading: false });
-        return;
-      }
-      
-      if (profileResult && profileResult.length > 0) {
-        // Backend returns an optional, so check if profile exists
-        const backendProfile = profileResult[0];
-        const profile: PatientProfile = {
-          owner: identity.getPrincipal().toString(),
-          full_name: backendProfile.full_name,
-          date_of_birth: backendProfile.date_of_birth,
-          contact_info: backendProfile.contact_info,
-          emergency_contact: backendProfile.emergency_contact,
-          medical_history: backendProfile.medical_history,
-          allergies: backendProfile.allergies,
-          current_medications: backendProfile.current_medications,
-          profile_permissions: backendProfile.profile_permissions || []
-        };
-        set({ patientProfile: profile, isLoading: false });
-        console.log('Patient profile fetched successfully:', profile);
-      } else {
-        // No profile found
-        set({ patientProfile: null, isLoading: false });
-        console.log('No patient profile found');
+        // Fetch own patient profile
+        const result = await actor.getPatientProfile();
+        
+        if ('ok' in result) {
+          const backendProfile = result.ok;
+          const profile: PatientProfile = {
+            owner: identity.getPrincipal().toString(),
+            full_name: backendProfile.fullName,
+            date_of_birth: backendProfile.dob,
+            contact_info: backendProfile.contact,
+            emergency_contact: backendProfile.emergency,
+            medical_history: backendProfile.medicalHistory?.[0] || null,
+            allergies: backendProfile.allergies?.[0] || null,
+            current_medications: backendProfile.medications?.[0] || null,
+            profile_permissions: []
+          };
+          set({ patientProfile: profile, isLoading: false });
+          console.log('Patient profile fetched successfully:', profile);
+        } else {
+          // Profile not found - this is expected for new users
+          set({ patientProfile: null, isLoading: false });
+          console.log('No patient profile found:', result.err);
+        }
       }
     } catch (error: any) {
       console.error("Error fetching patient profile:", error);
@@ -285,9 +278,27 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       // Get the authenticated actor
       const actor = await createAuthenticatedActor(identity);
       
-      // TODO: Implement when backend method is available
-      console.warn('fetchHealthcareProviderProfile not yet implemented - backend method get_healthcare_provider_profile not available');
-      set({ healthcareProviderProfile: null, isLoading: false });
+      // Fetch own provider profile
+      const result = await actor.getProviderProfile();
+      
+      if ('ok' in result) {
+        const backendProfile = result.ok;
+        const profile: HealthcareProviderProfile = {
+          owner: identity.getPrincipal().toString(),
+          full_name: backendProfile.name,
+          specialization: backendProfile.specialty,
+          license_number: backendProfile.license,
+          contact_info: backendProfile.contact,
+          facility_name: null, // Extended field not in backend
+          facility_address: null // Extended field not in backend
+        };
+        set({ healthcareProviderProfile: profile, isLoading: false });
+        console.log('Healthcare provider profile fetched successfully:', profile);
+      } else {
+        // Profile not found - this is expected for new users
+        set({ healthcareProviderProfile: null, isLoading: false });
+        console.log('No healthcare provider profile found:', result.err);
+      }
     } catch (error: any) {
       console.error("Error fetching healthcare provider profile:", error);
       set({ error: error.message, isLoading: false, healthcareProviderProfile: null });

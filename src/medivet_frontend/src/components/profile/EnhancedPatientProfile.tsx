@@ -13,7 +13,7 @@ import { PatientProfile as PatientProfileType } from '../../types';
 
 const EnhancedPatientProfile: React.FC = () => {
   const { principal } = useAuthStore();
-  const { patientProfile, updatePatientProfile, isLoading } = useProfileStore();
+  const { patientProfile, fetchPatientProfile, updatePatientProfile, isLoading, error } = useProfileStore();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<PatientProfileType>>({
     full_name: '',
@@ -25,6 +25,11 @@ const EnhancedPatientProfile: React.FC = () => {
     current_medications: '',
   });
   const [monetizeEnabled, setMonetizeEnabled] = useState(false);
+
+  // Fetch profile data on component mount
+  useEffect(() => {
+    fetchPatientProfile();
+  }, [fetchPatientProfile]);
 
   useEffect(() => {
     if (patientProfile) {

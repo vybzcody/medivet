@@ -331,7 +331,7 @@ const AdminPanel: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
                       <h4 className="font-medium">{provider.name}</h4>
-                      <Badge variant="primary">{provider.specialty}</Badge>
+                      <Badge variant="default">{provider.specialty}</Badge>
                       <Badge variant="success">Verified</Badge>
                     </div>
                     <div className="text-sm text-gray-600 mt-1">

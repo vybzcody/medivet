@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { formatDistance } from 'date-fns';
 import useAuthStore from '../../stores/useAuthStore';
 import useProfileStore from '../../stores/useProfileStore';
+import useProviderStore from '../../stores/useProviderStore';
 import { usePolling } from '../../hooks/usePolling';
 
 // Mock data for provider dashboard - in real app this would come from stores
@@ -96,6 +97,13 @@ const mockAccessLogs = [
 const EnhancedProviderDashboard: React.FC = () => {
   const { principal } = useAuthStore();
   const { healthcareProviderProfile, fetchHealthcareProviderProfile, isLoading: profileLoading } = useProfileStore();
+  const { 
+    accessLogs, 
+    monetizableRecords, 
+    fetchAccessLogs, 
+    fetchMonetizableRecords, 
+    isLoading: providerLoading 
+  } = useProviderStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -111,8 +119,10 @@ const EnhancedProviderDashboard: React.FC = () => {
   useEffect(() => {
     if (principal) {
       fetchHealthcareProviderProfile();
+      fetchAccessLogs();
+      fetchMonetizableRecords();
     }
-  }, [principal, fetchHealthcareProviderProfile]);
+  }, [principal, fetchHealthcareProviderProfile, fetchAccessLogs, fetchMonetizableRecords]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -172,10 +182,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Patients</p>
-              <div className="text-2xl font-bold text-gray-900">{mockProviderData.totalPatients}</div>
+              <p className="text-sm font-medium text-gray-600">Unique Patients</p>
+              <div className="text-2xl font-bold text-gray-900">{new Set(monetizableRecords.map(r => r.owner)).size}</div>
               <p className="text-xs text-gray-500 mt-1">
-                with shared records
+                with monetizable records
               </p>
             </div>
             <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -187,10 +197,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Records</p>
-              <div className="text-2xl font-bold text-green-600">{mockProviderData.activeRecords}</div>
+              <p className="text-sm font-medium text-gray-600">Monetizable Records</p>
+              <div className="text-2xl font-bold text-green-600">{monetizableRecords.length}</div>
               <p className="text-xs text-gray-500 mt-1">
-                accessible records
+                available for access
               </p>
             </div>
             <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -202,10 +212,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Recent Access</p>
-              <div className="text-2xl font-bold text-purple-600">{mockProviderData.recentAccess}</div>
+              <p className="text-sm font-medium text-gray-600">Total Access</p>
+              <div className="text-2xl font-bold text-purple-600">{accessLogs.length}</div>
               <p className="text-xs text-gray-500 mt-1">
-                in last 24 hours
+                records accessed
               </p>
             </div>
             <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -217,10 +227,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Data Quality</p>
-              <div className="text-2xl font-bold text-blue-600">{mockProviderData.dataQuality}%</div>
+              <p className="text-sm font-medium text-gray-600">Total Paid</p>
+              <div className="text-2xl font-bold text-blue-600">{accessLogs.reduce((sum, log) => sum + log.paid_amount, 0)} MT</div>
               <p className="text-xs text-gray-500 mt-1">
-                compliance score
+                for data access
               </p>
             </div>
             <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -353,7 +363,7 @@ const EnhancedProviderDashboard: React.FC = () => {
         </div>
 
         <div className="space-y-4">
-          {mockAccessLogs.map((log) => (
+          {accessLogs.map((log) => (
             <div key={log.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center space-x-4">
                 <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -361,18 +371,18 @@ const EnhancedProviderDashboard: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">{log.action} record</p>
-                  <p className="text-sm text-gray-600">{log.recordTitle} - {log.patientName}</p>
+                  <p className="text-sm text-gray-600">Record #{log.record_id} - Amount: {log.paid_amount} MT</p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-sm text-gray-500">
-                  {formatDistance(new Date(log.accessTime), new Date(), { addSuffix: true })}
+                  {formatDistance(new Date(log.access_time / 1000000), new Date(), { addSuffix: true })}
                 </p>
               </div>
             </div>
           ))}
 
-          {mockAccessLogs.length === 0 && (
+          {accessLogs.length === 0 && (
             <div className="text-center py-8">
               <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No recent activity</h3>

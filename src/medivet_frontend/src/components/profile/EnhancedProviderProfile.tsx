@@ -23,7 +23,7 @@ import { HealthcareProviderProfile as ProviderProfileType } from '../../types';
 
 const EnhancedProviderProfile: React.FC = () => {
   const { principal } = useAuthStore();
-  const { healthcareProviderProfile, updateHealthcareProviderProfile, isLoading } = useProfileStore();
+  const { healthcareProviderProfile, fetchHealthcareProviderProfile, updateHealthcareProviderProfile, isLoading, error } = useProfileStore();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<ProviderProfileType>>({
     full_name: '',
@@ -33,6 +33,11 @@ const EnhancedProviderProfile: React.FC = () => {
     facility_name: '',
     facility_address: '',
   });
+
+  // Fetch profile data on component mount
+  useEffect(() => {
+    fetchHealthcareProviderProfile();
+  }, [fetchHealthcareProviderProfile]);
 
   useEffect(() => {
     if (healthcareProviderProfile) {

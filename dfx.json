@@ -20,10 +20,15 @@
       "type": "motoko",
       "args": "--enhanced-orthogonal-persistence"
     },
+    "meditoken": {
+      "main": "src/meditoken/main.mo",
+      "type": "motoko"
+    },
     "medivet_frontend": {
       "dependencies": [
         "medivet_backend",
-        "vault"
+        "vault",
+        "meditoken"
       ],
       "source": [
         "src/medivet_frontend/dist"

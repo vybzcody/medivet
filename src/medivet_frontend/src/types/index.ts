@@ -18,10 +18,10 @@ export enum AccessAction {
 export interface AccessLog {
   id: number;
   record_id: number;
-  user: PrincipalName;
-  timestamp: Time;
-  action: AccessAction;
-  success: boolean;
+  provider_principal: PrincipalName;
+  access_time: number; // nanoseconds timestamp from backend
+  paid_amount: number;
+  action: string;
 }
 
 // User profile types
@@ -97,11 +97,14 @@ export interface HealthRecord {
   title: string;
   category: string;
   provider: string;
-  record_date: Time;
+  record_date: number; // timestamp in nanoseconds from backend
   record_type: string;
   encrypted_content: Uint8Array;
   attachment_id: number | null;
   user_permissions: UserPermission[];
+  access_count: number;
+  created_at: number;
+  updated_at: number;
   content?: string; // Decrypted content for display
 }
 
@@ -133,14 +136,19 @@ export const PermissionPresets = {
 // Auth types
 export enum UserRole {
   Patient = 'PATIENT',
-  HealthcareProvider = 'HEALTHCARE_PROVIDER'
+  HealthcareProvider = 'HEALTHCARE_PROVIDER',
+  Admin = 'ADMIN'
 }
 
 // Create a value-based enum for runtime use
 export const UserRoleValue = {
-  Patient: 'PATIENT',
-  HealthcareProvider: 'HEALTHCARE_PROVIDER'
+  Patient: 'PATIENT' as const,
+  HealthcareProvider: 'HEALTHCARE_PROVIDER' as const,
+  Admin: 'ADMIN' as const
 } as const;
+
+// Type for the values
+export type UserRoleType = typeof UserRoleValue[keyof typeof UserRoleValue];
 
 // Note types (legacy system)
 export interface EncryptedNote {

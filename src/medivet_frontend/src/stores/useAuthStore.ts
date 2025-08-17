@@ -21,6 +21,7 @@ interface AuthState {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   setUserRole: (role: UserRole) => Promise<void>;
+  refreshUserRole: () => Promise<void>;
 }
 
 const useAuthStore = create<AuthState>((set, get) => ({
@@ -48,22 +49,37 @@ const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false 
         });
         
-        // Then try to get user role separately
+        // Then try to get user information separately
         try {
           // Create an authenticated actor using our actor service
           const authenticatedActor = await createAuthenticatedActor(identity);
           
-          // Use the authenticated actor to get the user role
-          const userRole = await authenticatedActor.get_user_role();
+          // Use the authenticated actor to get the full user information
+          const userResult = await authenticatedActor.getUser();
           
-          // Update the store with the user role
-          set(state => ({ 
-            ...state,
-            userRole: userRole[0] as UserRole || null 
-          }));
+          if ('ok' in userResult) {
+            const user = userResult.ok;
+            let frontendRole: UserRole | null = null;
+            
+            // Convert backend role to frontend role
+            if (user.role.Patient !== undefined) {
+              frontendRole = UserRole.Patient;
+            } else if (user.role.Provider !== undefined) {
+              frontendRole = UserRole.HealthcareProvider;
+            }
+            
+            // Update the store with the user role
+            set(state => ({ 
+              ...state,
+              userRole: frontendRole
+            }));
+          } else {
+            // User not found - this is normal for new users
+            console.log("User not yet registered:", userResult.err);
+          }
         } catch (roleError: any) {
-          console.error("Error fetching user role during initialization:", roleError);
-          // Don't fail the whole initialization if just the role fetch fails
+          console.error("Error fetching user during initialization:", roleError);
+          // Don't fail the whole initialization if just the user fetch fails
         }
       } else {
         set({ isLoading: false });
@@ -117,24 +133,42 @@ const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false 
       });
       
-      // Now try to get user role with the authenticated identity
+      // Now try to get user information with the authenticated identity
       try {
-        console.log('Fetching user role...');
+        console.log('Fetching user information...');
         
         // Create an authenticated actor using our actor service
         const authenticatedActor = await createAuthenticatedActor(identity);
         
-        const userRole = await authenticatedActor.get_user_role();
-        console.log('User role:', userRole[0]);
+        const userResult = await authenticatedActor.getUser();
+        console.log('User result:', userResult);
         
-        // Update the store with the user role
-        set(state => ({ 
-          ...state,
-          userRole: userRole[0] as UserRole || null 
-        }));
+        if ('ok' in userResult) {
+          const user = userResult.ok;
+          let frontendRole: UserRole | null = null;
+          
+          // Convert backend role to frontend role
+          if (user.role.Patient !== undefined) {
+            frontendRole = UserRole.Patient;
+          } else if (user.role.Provider !== undefined) {
+            frontendRole = UserRole.HealthcareProvider;
+          }
+          
+          // Update the store with the user role
+          set(state => ({ 
+            ...state,
+            userRole: frontendRole
+          }));
+          
+          console.log('User found with role:', frontendRole);
+        } else {
+          console.log('User not yet registered:', userResult.err);
+          // User not found - this is normal for new users
+          // They will need to go through onboarding
+        }
       } catch (roleError: any) {
-        console.error("Error fetching user role:", roleError);
-        // Don't fail the whole login if just the role fetch fails
+        console.error("Error fetching user information:", roleError);
+        // Don't fail the whole login if just the user fetch fails
         // The user is still authenticated, they just might need to set their role
       }
       
@@ -213,6 +247,49 @@ const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error: any) {
       console.error('Set user role error:', error);
       set({ error: error.message, isLoading: false });
+    }
+  },
+  
+  refreshUserRole: async () => {
+    const state = get();
+    if (!state.isAuthenticated || !state.identity) {
+      return;
+    }
+    
+    try {
+      // Create an authenticated actor using our actor service
+      const authenticatedActor = await createAuthenticatedActor(state.identity);
+      
+      // Get the full user information
+      const userResult = await authenticatedActor.getUser();
+      
+      if ('ok' in userResult) {
+        const user = userResult.ok;
+        let frontendRole: UserRole | null = null;
+        
+        // Convert backend role to frontend role
+        if (user.role.Patient !== undefined) {
+          frontendRole = UserRole.Patient;
+        } else if (user.role.Provider !== undefined) {
+          frontendRole = UserRole.HealthcareProvider;
+        }
+        
+        // Update the store with the user role
+        set(state => ({ 
+          ...state,
+          userRole: frontendRole
+        }));
+        
+        console.log('User role refreshed:', frontendRole);
+      } else {
+        console.log('User not found during refresh:', userResult.err);
+        set(state => ({ 
+          ...state,
+          userRole: null
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error refreshing user role:', error);
     }
   }
 }));
