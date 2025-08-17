@@ -3,15 +3,17 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import useProfileStore from '../../stores/useProfileStore';
 import useAuthStore from '../../stores/useAuthStore';
+import useFileStore from '../../stores/useFileStore';
 import { PatientProfile } from '../../types';
 import AutocompleteInput from '../ui/AutocompleteInput';
 import ItemChips from '../ui/ItemChips';
 import FormInput from '../ui/FormInput';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import ProfilePhotoUpload from '../common/ProfilePhotoUpload';
 import { useMedicalData } from '../../hooks/useMedicalData';
 import { validateEmail, validateName, validateDate, validateMedicalText, ValidationResult } from '../../utils/validation';
-import { User, Mail, Phone, Calendar, Heart, AlertTriangle, Pill } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Heart, AlertTriangle, Pill, Camera } from 'lucide-react';
 
 interface ImprovedPatientOnboardingProps {
   onComplete: () => void;
@@ -236,6 +238,30 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
           </div>
         </div>
       )}
+
+      {/* Profile Photo Upload */}
+      <Card>
+        <div className="flex items-center mb-4">
+          <Camera className="w-5 h-5 text-blue-600 mr-2" />
+          <h4 className="text-lg font-semibold text-gray-900">Profile Photo</h4>
+          <span className="ml-2 text-sm text-gray-500">(Optional)</span>
+        </div>
+        <div className="flex justify-center">
+          <ProfilePhotoUpload
+            onUploadComplete={(url) => {
+              console.log('Profile photo uploaded successfully:', url);
+            }}
+            onUploadError={(error) => {
+              console.error('Profile photo upload error:', error);
+            }}
+            size="medium"
+            showLabel={false}
+          />
+        </div>
+        <div className="mt-3 text-center text-sm text-gray-600">
+          <p>Upload a clear photo of yourself for easy identification</p>
+        </div>
+      </Card>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}

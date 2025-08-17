@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, AlertCircle, CheckCircle, Calendar, Users, Shield, UserPlus, Edit3 } from 'lucide-react';
+import { X, Share2, AlertCircle, CheckCircle, Calendar, Users, Shield, UserPlus, Edit3, Search } from 'lucide-react';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
+import useUserMappingStore from '../../stores/useUserMappingStore';
+import PrincipalPill from '../ui/PrincipalPill';
 import { useToast } from '../../hooks/useToast';
 import { HealthRecord, PermissionType, PermissionPresets, UserPermission } from '../../types';
 
@@ -12,6 +14,8 @@ interface ShareRecordModalProps {
 
 const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, record }) => {
   const [userPrincipal, setUserPrincipal] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showUserList, setShowUserList] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [shareSuccess, setShareSuccess] = useState(false);
@@ -23,7 +27,19 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
   const [isUpdateMode, setIsUpdateMode] = useState(false);
 
   const { grantAccess, grantSpecificAccess } = useHealthRecordStore();
+  const { searchUsers, getAllUsers, getDisplayName } = useUserMappingStore();
   const { showSuccess, showError, showWarning } = useToast();
+
+  // Get filtered user suggestions
+  const userSuggestions = searchQuery.trim() 
+    ? searchUsers(searchQuery).slice(0, 5)
+    : getAllUsers().slice(0, 5);
+
+  const handleUserSelect = (principal: string) => {
+    setUserPrincipal(principal);
+    setSearchQuery('');
+    setShowUserList(false);
+  };
 
   // Check for existing permissions when user principal changes
   useEffect(() => {
@@ -218,22 +234,83 @@ const ShareRecordModal: React.FC<ShareRecordModalProps> = ({ isOpen, onClose, re
           <form onSubmit={handleShare} className="space-y-4">
             <div>
               <label htmlFor="userPrincipal" className="block text-sm font-medium text-gray-700 mb-2">
-                User Principal ID
+                Share with User
               </label>
+              
+              {/* Search Input */}
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search users by name or principal..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowUserList(true);
+                  }}
+                  onFocus={() => setShowUserList(true)}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={isSharing}
+                />
+                
+                {/* User Suggestions Dropdown */}
+                {showUserList && userSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                    <div className="p-2">
+                      <p className="text-xs text-gray-500 mb-2">Recent users:</p>
+                      {userSuggestions.map((user) => (
+                        <button
+                          key={user.principal}
+                          type="button"
+                          onClick={() => handleUserSelect(user.principal)}
+                          className="w-full p-2 text-left hover:bg-gray-50 rounded transition-colors"
+                        >
+                          <PrincipalPill
+                            principal={user.principal}
+                            variant="full"
+                            showRole={true}
+                            showCopy={false}
+                            className="w-full justify-start"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Selected User Display */}
+              {userPrincipal && (
+                <div className="mb-2">
+                  <p className="text-xs text-gray-500 mb-1">Selected user:</p>
+                  <PrincipalPill
+                    principal={userPrincipal}
+                    variant="full"
+                    showRole={true}
+                    className="mb-2"
+                  />
+                </div>
+              )}
+              
+              {/* Manual Principal Input */}
               <div className="relative">
                 <UserPlus className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   id="userPrincipal"
                   value={userPrincipal}
-                  onChange={(e) => setUserPrincipal(e.target.value)}
-                  placeholder="Enter the principal ID of the user to share with"
+                  onChange={(e) => {
+                    setUserPrincipal(e.target.value);
+                    setShowUserList(false);
+                  }}
+                  placeholder="Or enter principal ID manually..."
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={isSharing}
                 />
               </div>
+              
               <p className="text-xs text-gray-500 mt-1">
-                The principal ID is a unique identifier for each user on the Internet Computer
+                Principal ID is a unique identifier for each user on the Internet Computer
               </p>
             </div>
 

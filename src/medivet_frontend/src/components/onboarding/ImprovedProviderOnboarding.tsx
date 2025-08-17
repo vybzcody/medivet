@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import useProfileStore from '../../stores/useProfileStore';
 import useAuthStore from '../../stores/useAuthStore';
+import useFileStore from '../../stores/useFileStore';
 import { HealthcareProviderProfile } from '../../types';
 import AutocompleteInput from '../ui/AutocompleteInput';
 import FormInput from '../ui/FormInput';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import ProfilePhotoUpload from '../common/ProfilePhotoUpload';
 import { useMedicalData } from '../../hooks/useMedicalData';
 import { validateEmail, validateName, validateLicenseNumber, validateAddress, ValidationResult } from '../../utils/validation';
-import { User, Mail, Shield, Building, MapPin, Stethoscope, AlertTriangle } from 'lucide-react';
+import { User, Mail, Shield, Building, MapPin, Stethoscope, AlertTriangle, Camera } from 'lucide-react';
 
 interface ImprovedProviderOnboardingProps {
   onComplete: () => void;
@@ -140,6 +142,30 @@ const ImprovedProviderOnboarding: React.FC<ImprovedProviderOnboardingProps> = ({
           </div>
         </div>
       )}
+
+      {/* Profile Photo Upload */}
+      <Card>
+        <div className="flex items-center mb-4">
+          <Camera className="w-5 h-5 text-blue-600 mr-2" />
+          <h4 className="text-lg font-semibold text-gray-900">Professional Photo</h4>
+          <span className="ml-2 text-sm text-gray-500">(Optional)</span>
+        </div>
+        <div className="flex justify-center">
+          <ProfilePhotoUpload
+            onUploadComplete={(url) => {
+              console.log('Profile photo uploaded successfully:', url);
+            }}
+            onUploadError={(error) => {
+              console.error('Profile photo upload error:', error);
+            }}
+            size="medium"
+            showLabel={false}
+          />
+        </div>
+        <div className="mt-3 text-center text-sm text-gray-600">
+          <p>Upload a professional photo for your healthcare provider profile</p>
+        </div>
+      </Card>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal Information */}

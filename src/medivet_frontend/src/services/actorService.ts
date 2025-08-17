@@ -7,14 +7,14 @@ let currentIdentity: Identity | null = null;
 let currentAgent: HttpAgent | null = null;
 
 // Create and store an authenticated actor
-export const createAuthenticatedActor = async (identity: Identity): Promise<any> => {
+export const createAuthenticatedActor = async (identity: Identity): Promise<{ actor: any; agent: HttpAgent }> => {
   try {
     console.log('Creating authenticated actor with identity');
     
     // If we already have an actor with this identity, return it
-    if (authenticatedActor && currentIdentity === identity) {
+    if (authenticatedActor && currentIdentity === identity && currentAgent) {
       console.log('Reusing existing authenticated actor');
-      return authenticatedActor;
+      return { actor: authenticatedActor, agent: currentAgent };
     }
     
     // Create a new actor with the authenticated identity
@@ -52,7 +52,7 @@ export const createAuthenticatedActor = async (identity: Identity): Promise<any>
     });
     
     console.log('Authenticated actor created successfully');
-    return authenticatedActor;
+    return { actor: authenticatedActor, agent };
   } catch (error) {
     console.error('Error creating authenticated actor:', error);
     throw error;

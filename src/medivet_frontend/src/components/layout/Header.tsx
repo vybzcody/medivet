@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../ui/Button';
 import { Avatar, AvatarFallback } from '../ui/Avatar';
-import { LogOut, Sun, Moon, User } from 'lucide-react';
+import PrincipalPill from '../ui/PrincipalPill';
+import { LogOut, Sun, Moon, User, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,12 +13,40 @@ import {
 } from '../ui/DropdownMenu';
 import useAuthStore from '../../stores/useAuthStore';
 import useProfileStore from '../../stores/useProfileStore';
+import useUserMappingStore from '../../stores/useUserMappingStore';
 import { UserRoleValue } from '../../types';
 
 const Header: React.FC = () => {
   const { principal, userRole, logout } = useAuthStore();
   const { patientProfile, healthcareProviderProfile } = useProfileStore();
+  const { addOrUpdateUser, getDisplayName } = useUserMappingStore();
   const [isDark, setIsDark] = useState(false);
+
+  // Update user mapping when profile data is available
+  useEffect(() => {
+    if (!principal) return;
+
+    let fullName = '';
+    let username = '';
+
+    if (userRole === UserRoleValue.Patient && patientProfile?.full_name) {
+      fullName = patientProfile.full_name;
+      // Generate a simple username from the full name
+      username = fullName.toLowerCase().replace(/\s+/g, '.');
+    } else if (userRole === UserRoleValue.HealthcareProvider && healthcareProviderProfile?.full_name) {
+      fullName = healthcareProviderProfile.full_name;
+      // Generate a simple username from the full name
+      username = `dr.${fullName.toLowerCase().replace(/\s+/g, '.')}`;
+    }
+
+    if (fullName) {
+      addOrUpdateUser(principal, {
+        fullName,
+        username,
+        role: userRole || undefined,
+      });
+    }
+  }, [principal, userRole, patientProfile, healthcareProviderProfile, addOrUpdateUser]);
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -94,6 +123,18 @@ const Header: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Principal Pill for easy sharing */}
+          {principal && (
+            <div className="hidden sm:block">
+              <PrincipalPill 
+                principal={principal}
+                variant="compact"
+                showRole={true}
+                className="transition-transform hover:scale-105"
+              />
+            </div>
+          )}
+          
           <Button
             variant="ghost"
             size="sm"

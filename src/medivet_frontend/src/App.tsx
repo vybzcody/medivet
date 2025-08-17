@@ -30,7 +30,7 @@ function App(): JSX.Element {
   
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-
+  const [profileCheckComplete, setProfileCheckComplete] = useState(false);
   // Initialize authentication on app load
   useEffect(() => {
     const init = async () => {
@@ -44,24 +44,41 @@ function App(): JSX.Element {
 
   // Check if user needs onboarding when authenticated
   useEffect(() => {
-    if (isAuthenticated && principal) {
+    if (isAuthenticated && principal && !profileCheckComplete) {
       console.log('Checking if user needs onboarding, userRole:', userRole);
       
       // If no role is set, immediately show onboarding
       if (!userRole) {
         console.log('No user role found, showing onboarding modal');
         setShowOnboarding(true);
+        setProfileCheckComplete(true);
         return;
       }
       
-      // If role is set, check if profile exists
+      // If role is set, check if profile already exists in store first
+      const currentState = useProfileStore.getState();
+      if (userRole === UserRoleValue.Patient && currentState.patientProfile) {
+        console.log('Patient profile already exists in store, hiding onboarding');
+        setShowOnboarding(false);
+        setProfileCheckComplete(true);
+        return;
+      }
+      
+      if (userRole === UserRoleValue.HealthcareProvider && currentState.healthcareProviderProfile) {
+        console.log('Provider profile already exists in store, hiding onboarding');
+        setShowOnboarding(false);
+        setProfileCheckComplete(true);
+        return;
+      }
+      
+      // Only if profile doesn't exist in store, fetch from backend
       const checkProfile = async () => {
         try {
           if (userRole === UserRoleValue.Patient) {
             await fetchPatientProfile();
             // Check the current state after fetch
-            const currentState = useProfileStore.getState();
-            if (!currentState.patientProfile) {
+            const updatedState = useProfileStore.getState();
+            if (!updatedState.patientProfile) {
               console.log('No patient profile found, showing onboarding');
               setShowOnboarding(true);
             } else {
@@ -71,8 +88,8 @@ function App(): JSX.Element {
           } else if (userRole === UserRoleValue.HealthcareProvider) {
             await fetchHealthcareProviderProfile();
             // Check the current state after fetch
-            const currentState = useProfileStore.getState();
-            if (!currentState.healthcareProviderProfile) {
+            const updatedState = useProfileStore.getState();
+            if (!updatedState.healthcareProviderProfile) {
               console.log('No healthcare provider profile found, showing onboarding');
               setShowOnboarding(true);
             } else {
@@ -84,14 +101,17 @@ function App(): JSX.Element {
           console.error('Error checking profile:', error);
           // If there's an error fetching profile, assume it doesn't exist
           setShowOnboarding(true);
+        } finally {
+          setProfileCheckComplete(true);
         }
       };
       checkProfile();
-    } else {
-      // If not authenticated, hide onboarding
+    } else if (!isAuthenticated) {
+      // If not authenticated, hide onboarding and reset profile check
       setShowOnboarding(false);
+      setProfileCheckComplete(false);
     }
-  }, [isAuthenticated, principal, userRole, fetchPatientProfile, fetchHealthcareProviderProfile]);
+  }, [isAuthenticated, principal, userRole, fetchPatientProfile, fetchHealthcareProviderProfile, profileCheckComplete]);
 
   if (isLoading) {
     return (

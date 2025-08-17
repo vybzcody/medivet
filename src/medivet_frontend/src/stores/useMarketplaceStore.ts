@@ -64,7 +64,7 @@ const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Fetch monetizable records from backend
       const result = await actor.getMonetizableRecords();
@@ -148,7 +148,7 @@ const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       }
       
       // Get the authenticated actor
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       
       // Fetch access logs (which represent purchases)
       const result = await actor.getAccessLogs();
@@ -301,7 +301,7 @@ const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       }
       
       // Access the record through the backend (this logs the purchase)
-      const actor = await createAuthenticatedActor(identity);
+      const { actor } = await createAuthenticatedActor(identity);
       const recordResult = await actor.queryRecord(BigInt(listing.recordId));
       
       if ('ok' in recordResult) {

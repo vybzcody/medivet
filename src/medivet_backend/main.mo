@@ -1,6 +1,7 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import HashMap "mo:base/HashMap";
+import Int "mo:base/Int";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
@@ -29,6 +30,7 @@ public type PatientProfile = {
   allergies: ?Text;
   medications: ?Text;
   gender: Text;
+  profilePhoto: ?Text; // filename in vault canister
 };
 
 public type ProviderProfile = {
@@ -36,6 +38,7 @@ public type ProviderProfile = {
   license: Text;
   specialty: Text;
   contact: Text;
+  profilePhoto: ?Text; // filename in vault canister
 };
 
 public type UserProfile = { #Patient: PatientProfile; #Provider: ProviderProfile };
@@ -50,6 +53,27 @@ public type User = {
 
 public type RecordStatus = { #Monetizable; #NonMonetizable; #Flagged };
 
+public type PermissionType = {
+  #ReadBasicInfo;        // name, DOB, contact
+  #ReadMedicalHistory;   // medical history
+  #ReadMedications;      // current medications
+  #ReadAllergies;        // allergies
+  #ReadLabResults;       // lab results
+  #ReadImaging;          // imaging results
+  #ReadMentalHealth;     // mental health records
+  #WriteNotes;           // add notes to records
+  #WritePrescriptions;   // add prescriptions
+  #EmergencyAccess;      // emergency access override
+};
+
+public type UserPermission = {
+  user: Principal;
+  permissions: [PermissionType];
+  grantedAt: Time.Time;
+  expiresAt: ?Time.Time;
+  grantedBy: Principal;
+};
+
 public type HealthRecord = {
   id: Nat;
   owner: Principal;
@@ -61,6 +85,7 @@ public type HealthRecord = {
   createdAt: Time.Time;
   modifiedAt: Time.Time;
   accessCount: Nat;
+  userPermissions: [UserPermission];
 };
 
 public type AccessLog = {
@@ -267,6 +292,7 @@ public shared ({ caller }) func createHealthRecord(
     createdAt = now;
     modifiedAt = now;
     accessCount = 0;
+    userPermissions = [];
   };
   records.put(id, rec);
   #ok(id);
@@ -377,6 +403,167 @@ public shared ({ caller }) func getMonetizableRecords(): async Result<[HealthRec
   
   let monetizableRecords = Iter.filter(records.vals(), func(r: HealthRecord): Bool { r.status == #Monetizable });
   #ok(Iter.toArray(monetizableRecords));
+};
+
+// -------------------- Record Sharing & Permissions --------------------
+public shared ({ caller }) func grantSpecificAccess(
+  recordId: Nat,
+  userPrincipal: Principal,
+  permissions: [PermissionType],
+  expiryTimestamp: ?Int  // Nanosecond timestamp, optional
+): async Result<()> {
+  // Validate record exists and caller owns it
+  let rec = switch (records.get(recordId)) { 
+    case (?r) r; 
+    case null return #err("record not found"); 
+  };
+  
+  switch (require(rec.owner == caller, "only record owner can grant access")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  // Validate target user exists
+  let _ = switch (_getUser(userPrincipal)) { 
+    case (#ok(u)) u; 
+    case (#err(e)) return #err("target user not found: " # e); 
+  };
+  
+  // Validate permissions array is not empty
+  switch (require(permissions.size() > 0, "permissions cannot be empty")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Convert expiry timestamp from milliseconds to nanoseconds if provided
+  let expiryNs = switch (expiryTimestamp) {
+    case (?ms) ?(Int.abs(ms) * 1_000_000); // Convert ms to ns
+    case null null;
+  };
+  
+  // Validate expiry is in the future if provided
+  switch (expiryNs) {
+    case (?expiry) {
+      switch (require(expiry > now, "expiry date must be in the future")) {
+        case (#err(msg)) { return #err(msg); };
+        case (#ok()) {};
+      };
+    };
+    case null {};
+  };
+  
+  let newPermission: UserPermission = {
+    user = userPrincipal;
+    permissions = permissions;
+    grantedAt = now;
+    expiresAt = expiryNs;
+    grantedBy = caller;
+  };
+  
+  // Filter out any existing permissions for this user and add the new one
+  let updatedPermissions = Array.filter(rec.userPermissions, func(p: UserPermission): Bool {
+    p.user != userPrincipal
+  });
+  
+  let finalPermissions = Array.append(updatedPermissions, [newPermission]);
+  
+  let updatedRec = {
+    rec with
+    userPermissions = finalPermissions;
+    modifiedAt = now;
+  };
+  
+  records.put(recordId, updatedRec);
+  #ok(());
+};
+
+public shared ({ caller }) func revokeAccess(
+  recordId: Nat,
+  userPrincipal: Principal
+): async Result<()> {
+  // Validate record exists and caller owns it
+  let rec = switch (records.get(recordId)) { 
+    case (?r) r; 
+    case null return #err("record not found"); 
+  };
+  
+  switch (require(rec.owner == caller, "only record owner can revoke access")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  // Filter out permissions for the specified user
+  let updatedPermissions = Array.filter(rec.userPermissions, func(p: UserPermission): Bool {
+    p.user != userPrincipal
+  });
+  
+  // Check if any permissions were actually removed
+  switch (require(updatedPermissions.size() != rec.userPermissions.size(), "no permissions found for user")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let updatedRec = {
+    rec with
+    userPermissions = updatedPermissions;
+    modifiedAt = Time.now();
+  };
+  
+  records.put(recordId, updatedRec);
+  #ok(());
+};
+
+public shared ({ caller }) func getSharedHealthRecords(): async Result<[HealthRecord]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  // This method is primarily for providers to see records shared with them
+  switch (require(u.role == #Provider, "only providers can access shared records")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Filter records where the caller has valid, non-expired permissions
+  let sharedRecords = Array.filter(
+    Iter.toArray(records.vals()),
+    func(record: HealthRecord): Bool {
+      // Check if caller has permissions for this record
+      let hasPermission = Array.find(record.userPermissions, func(perm: UserPermission): Bool {
+        perm.user == caller and
+        (switch (perm.expiresAt) {
+          case (?expiry) expiry > now; // Not expired
+          case null true; // No expiry
+        })
+      });
+      
+      switch (hasPermission) {
+        case (?_) true;
+        case null false;
+      }
+    }
+  );
+  
+  #ok(sharedRecords);
+};
+
+public shared ({ caller }) func lookupProviderByPrincipal(providerPrincipal: Principal): async Result<ProviderProfile> {
+  let targetUser = switch (_getUser(providerPrincipal)) { 
+    case (#ok(u)) u; 
+    case (#err(e)) return #err("provider not found: " # e); 
+  };
+  
+  switch (require(targetUser.role == #Provider, "specified user is not a provider")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  switch (targetUser.profile) {
+    case (?#Provider(profile)) { #ok(profile) };
+    case _ { #err("provider profile not found") };
+  };
 };
 
 // -------------------- Pay-per-query & Logging --------------------
