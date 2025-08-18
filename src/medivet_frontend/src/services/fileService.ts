@@ -7,6 +7,7 @@
  */
 
 import { Actor, Identity } from '@dfinity/agent';
+import { Principal } from '@dfinity/principal';
 import { idlFactory as vaultIdlFactory } from '../../../declarations/vault/vault.did.js';
 import { createAuthenticatedActor } from './actorService';
 
@@ -385,7 +386,22 @@ class FileService {
         throw new Error('Vault actor not initialized');
       }
 
-      const result = await this.vaultActor.getUserProfilePhoto(userPrincipal);
+      // Validate principal format
+      if (!userPrincipal || typeof userPrincipal !== 'string') {
+        throw new Error('Invalid principal: must be a non-empty string');
+      }
+
+      // Check if principal is properly formatted (basic validation)
+      if (userPrincipal.length < 10 || !userPrincipal.includes('-')) {
+        throw new Error(`Invalid principal format: ${userPrincipal}`);
+      }
+
+      console.log('Getting profile photo for principal:', userPrincipal);
+      
+      // Convert string principal to Principal object
+      const principalObj = Principal.fromText(userPrincipal);
+      
+      const result = await this.vaultActor.getUserProfilePhoto(principalObj);
       if (!result || result.length === 0) {
         return null;
       }

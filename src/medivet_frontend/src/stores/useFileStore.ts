@@ -446,17 +446,34 @@ const useFileStore = create<FileStore>((set, get) => ({
         set({ profilePhotoUrl: null });
         return;
       }
+
+      // Validate principal format before proceeding
+      if (typeof userPrincipal !== 'string' || userPrincipal.length < 10) {
+        console.error('Invalid principal format provided:', userPrincipal);
+        set({ profilePhotoUrl: null });
+        return;
+      }
+
+      console.log('Loading profile photo for principal:', userPrincipal);
       
       const photoMetadata = await fileService.getUserProfilePhoto(userPrincipal);
       
       if (photoMetadata) {
+        console.log('Profile photo metadata found:', photoMetadata.name);
         const photoUrl = await fileService.getFilePreviewUrl(photoMetadata.name);
         set({ profilePhotoUrl: photoUrl });
+        console.log('Profile photo loaded successfully');
       } else {
+        console.log('No profile photo found for user:', userPrincipal);
         set({ profilePhotoUrl: null });
       }
     } catch (error) {
       console.error('Failed to load profile photo:', error);
+      // Provide more specific error information
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('Invalid principal')) {
+        console.error('Principal validation failed - check the principal format');
+      }
       set({ profilePhotoUrl: null });
     }
   },
