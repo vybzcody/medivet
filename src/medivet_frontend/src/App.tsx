@@ -45,69 +45,82 @@ function App(): JSX.Element {
   // Check if user needs onboarding when authenticated
   useEffect(() => {
     if (isAuthenticated && principal && !profileCheckComplete) {
-      console.log('Checking if user needs onboarding, userRole:', userRole);
+      console.log('=== ONBOARDING CHECK ===');
+      console.log('User authenticated, checking onboarding status...');
+      console.log('userRole:', userRole);
+      console.log('principal:', principal);
       
       // If no role is set, immediately show onboarding
       if (!userRole) {
-        console.log('No user role found, showing onboarding modal');
+        console.log('❌ No user role found, showing onboarding modal');
         setShowOnboarding(true);
         setProfileCheckComplete(true);
         return;
       }
       
-      // If role is set, check if profile already exists in store first
+      // Check if profile already exists in store first (immediate check)
       const currentState = useProfileStore.getState();
+      console.log('Current profile state:', {
+        patientProfile: !!currentState.patientProfile,
+        healthcareProviderProfile: !!currentState.healthcareProviderProfile
+      });
+      
       if (userRole === UserRoleValue.Patient && currentState.patientProfile) {
-        console.log('Patient profile already exists in store, hiding onboarding');
+        console.log('✅ Patient profile exists in store, hiding onboarding');
         setShowOnboarding(false);
         setProfileCheckComplete(true);
         return;
       }
       
       if (userRole === UserRoleValue.HealthcareProvider && currentState.healthcareProviderProfile) {
-        console.log('Provider profile already exists in store, hiding onboarding');
+        console.log('✅ Provider profile exists in store, hiding onboarding');
         setShowOnboarding(false);
         setProfileCheckComplete(true);
         return;
       }
       
-      // Only if profile doesn't exist in store, fetch from backend
+      // If no profile in store, try to fetch from backend
+      console.log('⏳ No profile in store, fetching from backend...');
       const checkProfile = async () => {
         try {
           if (userRole === UserRoleValue.Patient) {
+            console.log('Fetching patient profile from backend...');
             await fetchPatientProfile();
             // Check the current state after fetch
             const updatedState = useProfileStore.getState();
             if (!updatedState.patientProfile) {
-              console.log('No patient profile found, showing onboarding');
+              console.log('❌ No patient profile found in backend, showing onboarding');
               setShowOnboarding(true);
             } else {
-              console.log('Patient profile exists, hiding onboarding');
+              console.log('✅ Patient profile exists in backend, hiding onboarding');
               setShowOnboarding(false);
             }
           } else if (userRole === UserRoleValue.HealthcareProvider) {
+            console.log('Fetching provider profile from backend...');
             await fetchHealthcareProviderProfile();
             // Check the current state after fetch
             const updatedState = useProfileStore.getState();
             if (!updatedState.healthcareProviderProfile) {
-              console.log('No healthcare provider profile found, showing onboarding');
+              console.log('❌ No healthcare provider profile found in backend, showing onboarding');
               setShowOnboarding(true);
             } else {
-              console.log('Healthcare provider profile exists, hiding onboarding');
+              console.log('✅ Healthcare provider profile exists in backend, hiding onboarding');
               setShowOnboarding(false);
             }
           }
         } catch (error) {
-          console.error('Error checking profile:', error);
+          console.error('❌ Error checking profile:', error);
           // If there's an error fetching profile, assume it doesn't exist
           setShowOnboarding(true);
         } finally {
           setProfileCheckComplete(true);
+          console.log('=== ONBOARDING CHECK COMPLETE ===');
         }
       };
       checkProfile();
     } else if (!isAuthenticated) {
       // If not authenticated, hide onboarding and reset profile check
+      console.log('User not authenticated, resetting onboarding state');
       setShowOnboarding(false);
       setProfileCheckComplete(false);
     }
@@ -127,16 +140,23 @@ function App(): JSX.Element {
   
   // Handle onboarding completion
   const handleOnboardingComplete = async () => {
+    console.log('=== ONBOARDING COMPLETION ===');
     console.log('Onboarding completed, refreshing profile state');
+    
+    // Hide the onboarding modal immediately
     setShowOnboarding(false);
     
-    // Refresh the profile state after onboarding completion
-    const { userRole } = useAuthStore.getState();
-    if (userRole === UserRoleValue.Patient) {
-      await fetchPatientProfile();
-    } else if (userRole === UserRoleValue.HealthcareProvider) {
-      await fetchHealthcareProviderProfile();
-    }
+    // Reset the profile check state to allow re-validation
+    setProfileCheckComplete(false);
+    
+    // Small delay to ensure state updates
+    setTimeout(() => {
+      console.log('Triggering profile re-check after onboarding completion');
+      // This will trigger the useEffect to re-run with the new profile state
+      setProfileCheckComplete(false);
+    }, 100);
+    
+    console.log('=== ONBOARDING COMPLETION FINISHED ===');
   };
   
   // If still initializing auth, show loading
