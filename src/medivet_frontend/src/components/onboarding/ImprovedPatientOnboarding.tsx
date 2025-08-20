@@ -13,7 +13,7 @@ import Card from '../ui/Card';
 import ProfilePhotoUpload from '../common/ProfilePhotoUpload';
 import { useMedicalData } from '../../hooks/useMedicalData';
 import { validateEmail, validateName, validateDate, validateMedicalText, ValidationResult } from '../../utils/validation';
-import { User, Mail, Phone, Calendar, Heart, AlertTriangle, Pill, Camera } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Heart, AlertTriangle, Pill, Camera, Users, Droplet } from 'lucide-react';
 
 interface ImprovedPatientOnboardingProps {
   onComplete: () => void;
@@ -27,6 +27,8 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
   const [formData, setFormData] = useState({
     fullName: '',
     dateOfBirth: '',
+    gender: '',
+    bloodGroup: '',
     contactInfo: '',
     emergencyContact: '',
     medicalHistory: '',
@@ -73,7 +75,7 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
     { value: 'bee_stings', label: 'Bee Stings' },
   ];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
@@ -167,6 +169,25 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
     const dateValidation = validateDate(formData.dateOfBirth, 'Date of Birth');
     if (!dateValidation.isValid) {
       errors.dateOfBirth = dateValidation.error || 'Invalid date';
+    } else {
+      // Check minimum age of 16 years
+      const today = new Date();
+      const birthDate = new Date(formData.dateOfBirth);
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDifference = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+        if (age - 1 < 16) {
+          errors.dateOfBirth = 'You must be at least 16 years old to register';
+        }
+      } else if (age < 16) {
+        errors.dateOfBirth = 'You must be at least 16 years old to register';
+      }
+    }
+    
+    // Validate gender (required)
+    if (!formData.gender.trim()) {
+      errors.gender = 'Please select your gender';
     }
     
     const emailValidation = validateEmail(formData.contactInfo);
@@ -213,7 +234,9 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
         formData.emergencyContact,
         formData.medicalHistory || null,
         formData.allergies || null,
-        formData.currentMedications || null
+        formData.currentMedications || null,
+        formData.gender,
+        formData.bloodGroup || null
       );
       onComplete();
     } catch (err) {
@@ -312,6 +335,77 @@ const ImprovedPatientOnboarding: React.FC<ImprovedPatientOnboardingProps> = ({ o
                   <p className="text-sm text-red-600">{validationErrors.dateOfBirth}</p>
                 </div>
               )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Gender <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className={`
+                    block w-full rounded-lg border transition-colors duration-200 pl-10 pr-8 py-2.5 appearance-none bg-white
+                    ${validationErrors.gender 
+                      ? 'border-red-300 text-red-900 focus:outline-none focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    }
+                  `}
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="prefer_not_to_say">Prefer not to say</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              {validationErrors.gender && (
+                <div className="flex items-start space-x-1">
+                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-red-600">{validationErrors.gender}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Blood Group <span className="text-sm text-gray-500">(Optional)</span>
+              </label>
+              <div className="relative">
+                <Droplet className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  name="bloodGroup"
+                  value={formData.bloodGroup}
+                  onChange={handleChange}
+                  className="block w-full rounded-lg border border-gray-300 transition-colors duration-200 pl-10 pr-8 py-2.5 appearance-none bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select blood group</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
           

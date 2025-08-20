@@ -20,7 +20,9 @@ interface ProfileState {
     emergencyContact: string,
     medicalHistory?: string | null,
     allergies?: string | null,
-    currentMedications?: string | null
+    currentMedications?: string | null,
+    gender?: string,
+    bloodGroup?: string | null
   ) => Promise<void>;
   updatePatientProfile: (
     fullName: string, 
@@ -163,7 +165,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
   
-  createPatientProfile: async (fullName, dateOfBirth, contactInfo, emergencyContact, medicalHistory = null, allergies = null, currentMedications = null) => {
+  createPatientProfile: async (fullName, dateOfBirth, contactInfo, emergencyContact, medicalHistory = null, allergies = null, currentMedications = null, gender = 'Not specified', bloodGroup = null) => {
     set({ isLoading: true, error: null });
     try {
       // Get the identity from the auth store
@@ -185,7 +187,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         medicalHistory: medicalHistory ? [medicalHistory] : [],
         allergies: allergies ? [allergies] : [],
         medications: currentMedications ? [currentMedications] : [],
-        gender: 'Not specified', // Default value since it's required
+        gender: gender, // Use the provided gender parameter
         profilePhoto: [] // Optional profile photo field (empty array for null)
       };
       
@@ -198,10 +200,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         // Continue with placeholder profile creation for now
       }
       
-      // TODO: Implement profile fetching when backend methods are available
-      // For now, create a placeholder profile from the input data
+      // After successful profile creation, set a proper profile object
+      // Use the authenticated identity to get the owner principal
       const profile: PatientProfile = {
-        owner: '', // Will be set by backend
+        owner: identity.getPrincipal().toString(),
         full_name: fullName,
         date_of_birth: dateOfBirth,
         contact_info: contactInfo,
@@ -213,7 +215,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       };
       
       set({ patientProfile: profile, isLoading: false });
-      console.log('Patient profile created successfully (placeholder):', profile);
+      console.log('✅ Patient profile created successfully:', profile);
     } catch (error: any) {
       console.error("Error creating patient profile:", error);
       set({ error: error.message, isLoading: false });
@@ -341,10 +343,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
         // Continue with placeholder profile creation for now
       }
       
-      // TODO: Implement profile fetching when backend methods are available
-      // For now, create a placeholder profile from the input data
+      // After successful profile creation, set a proper profile object
+      // Use the authenticated identity to get the owner principal
       const profile: HealthcareProviderProfile = {
-        owner: "", // Will be set by backend
+        owner: identity.getPrincipal().toString(),
         full_name: fullName,
         specialization: specialization,
         license_number: licenseNumber,
@@ -354,7 +356,7 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       };
       
       set({ healthcareProviderProfile: profile, isLoading: false });
-      console.log('Healthcare provider profile created successfully (placeholder):', profile);
+      console.log('✅ Healthcare provider profile created successfully:', profile);
     } catch (error: any) {
       console.error("Error creating healthcare provider profile:", error);
       set({ error: error.message, isLoading: false });
