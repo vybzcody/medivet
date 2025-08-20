@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Users,
   FileText,
@@ -21,78 +21,8 @@ import { formatDistance } from 'date-fns';
 import useAuthStore from '../../stores/useAuthStore';
 import useProfileStore from '../../stores/useProfileStore';
 import useProviderStore from '../../stores/useProviderStore';
+import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import { usePolling } from '../../hooks/usePolling';
-
-// Mock data for provider dashboard - in real app this would come from stores
-const mockProviderData = {
-  totalPatients: 24,
-  activeRecords: 156,
-  recentAccess: 8,
-  dataQuality: 95
-};
-
-const mockPatientRecords = [
-  {
-    id: 1,
-    patientName: 'Sarah Johnson',
-    recordTitle: 'Annual Physical Exam 2024',
-    category: 'General',
-    lastAccessed: new Date(Date.now() - 86400000 * 1).toISOString(),
-    status: 'Active',
-    permissions: ['ViewBasicInfo', 'ViewMedicalHistory']
-  },
-  {
-    id: 2,
-    patientName: 'Michael Chen',
-    recordTitle: 'Cardiology Consultation',
-    category: 'Cardiology',
-    lastAccessed: new Date(Date.now() - 86400000 * 3).toISOString(),
-    status: 'Active',
-    permissions: ['ViewBasicInfo', 'ViewMedicalHistory', 'ViewAllergies']
-  },
-  {
-    id: 3,
-    patientName: 'Emily Rodriguez',
-    recordTitle: 'Lab Results - Blood Panel',
-    category: 'Laboratory',
-    lastAccessed: new Date(Date.now() - 86400000 * 7).toISOString(),
-    status: 'Expired',
-    permissions: ['ViewBasicInfo']
-  },
-  {
-    id: 4,
-    patientName: 'David Wilson',
-    recordTitle: 'Dermatology Assessment',
-    category: 'Dermatology',
-    lastAccessed: new Date(Date.now() - 86400000 * 2).toISOString(),
-    status: 'Active',
-    permissions: ['ViewBasicInfo', 'ViewMedicalHistory', 'ViewAllergies', 'ViewMedications']
-  }
-];
-
-const mockAccessLogs = [
-  {
-    id: 1,
-    patientName: 'Sarah Johnson',
-    recordTitle: 'Annual Physical Exam 2024',
-    accessTime: new Date(Date.now() - 3600000 * 2).toISOString(),
-    action: 'Viewed'
-  },
-  {
-    id: 2,
-    patientName: 'Michael Chen',
-    recordTitle: 'Cardiology Consultation',
-    accessTime: new Date(Date.now() - 3600000 * 5).toISOString(),
-    action: 'Downloaded'
-  },
-  {
-    id: 3,
-    patientName: 'Emily Rodriguez',
-    recordTitle: 'Lab Results - Blood Panel',
-    accessTime: new Date(Date.now() - 3600000 * 8).toISOString(),
-    action: 'Viewed'
-  }
-];
 
 const EnhancedProviderDashboard: React.FC = () => {
   const { principal } = useAuthStore();
@@ -104,6 +34,8 @@ const EnhancedProviderDashboard: React.FC = () => {
     fetchMonetizableRecords, 
     isLoading: providerLoading 
   } = useProviderStore();
+  const { sharedRecords, fetchSharedRecordsWithoutDecryption, isLoading: recordsLoading } = useHealthRecordStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -121,8 +53,9 @@ const EnhancedProviderDashboard: React.FC = () => {
       fetchHealthcareProviderProfile();
       fetchAccessLogs();
       fetchMonetizableRecords();
+      fetchSharedRecordsWithoutDecryption();
     }
-  }, [principal, fetchHealthcareProviderProfile, fetchAccessLogs, fetchMonetizableRecords]);
+  }, [principal, fetchHealthcareProviderProfile, fetchAccessLogs, fetchMonetizableRecords, fetchSharedRecordsWithoutDecryption]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,12 +66,68 @@ const EnhancedProviderDashboard: React.FC = () => {
     }
   };
 
-  const filteredRecords = mockPatientRecords.filter(record => {
-    const matchesSearch = record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.recordTitle.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || record.status.toLowerCase() === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Map backend permission variant keys to user-friendly labels
+  const formatPermission = (p: string) => {
+    switch (p) {
+      case 'READ_BASIC_INFO': return 'Basic Info';
+      case 'READ_MEDICAL_HISTORY': return 'History';
+      case 'READ_MEDICATIONS': return 'Medications';
+      case 'READ_ALLERGIES': return 'Allergies';
+      case 'READ_LAB_RESULTS': return 'Labs';
+      case 'READ_IMAGING': return 'Imaging';
+      case 'READ_MENTAL_HEALTH': return 'Mental Health';
+      case 'WRITE_NOTES': return 'Write Notes';
+      case 'WRITE_PRESCRIPTIONS': return 'Prescribe';
+      case 'EMERGENCY_ACCESS': return 'Emergency';
+      default: return p;
+    }
+  };
+
+  // Build view-model from sharedRecords limited to this provider's permissions
+  const providerRecords = useMemo(() => {
+    if (!principal) return [] as Array<{
+      id: number;
+      patientPrincipal: string;
+      title: string;
+      category: string;
+      lastAccessed?: number;
+      status: 'Active' | 'Expired' | 'Revoked' | 'Unknown';
+      permissions: string[];
+    }>;
+
+    return sharedRecords.map((r) => {
+      const entryForMe = (r.user_permissions || []).find((up: any) => up.user === principal.toString());
+      const perms: string[] = entryForMe?.permissions || [];
+      // Determine status by expiry if present
+      let status: 'Active' | 'Expired' | 'Revoked' | 'Unknown' = 'Unknown';
+      if (entryForMe?.expires_at) {
+        const ms = Number(entryForMe.expires_at) / 1_000_000; // ns -> ms
+        status = ms >= Date.now() ? 'Active' : 'Expired';
+      } else if (perms.length > 0) {
+        status = 'Active';
+      }
+      return {
+        id: r.id,
+        patientPrincipal: r.owner,
+        title: r.title,
+        category: r.category,
+        lastAccessed: r.updated_at,
+        status,
+        permissions: perms,
+      };
+    }).filter((x) => x.permissions.length > 0);
+  }, [sharedRecords, principal]);
+
+  const filteredRecords = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return providerRecords.filter((rec) => {
+      const matchesSearch = rec.title.toLowerCase().includes(term) ||
+        rec.patientPrincipal.toLowerCase().includes(term) ||
+        rec.category.toLowerCase().includes(term);
+      const matchesStatus = statusFilter === 'all' || rec.status.toLowerCase() === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [providerRecords, searchTerm, statusFilter]);
 
   if (profileLoading) {
     return (
@@ -182,10 +171,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Unique Patients</p>
-              <div className="text-2xl font-bold text-gray-900">{new Set(monetizableRecords.map(r => r.owner)).size}</div>
+              <p className="text-sm font-medium text-gray-600">Patients (shared)</p>
+              <div className="text-2xl font-bold text-gray-900">{new Set(providerRecords.map(r => r.patientPrincipal)).size}</div>
               <p className="text-xs text-gray-500 mt-1">
-                with monetizable records
+                with shared records
               </p>
             </div>
             <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -197,10 +186,10 @@ const EnhancedProviderDashboard: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Monetizable Records</p>
-              <div className="text-2xl font-bold text-green-600">{monetizableRecords.length}</div>
+              <p className="text-sm font-medium text-gray-600">Shared Records</p>
+              <div className="text-2xl font-bold text-green-600">{providerRecords.length}</div>
               <p className="text-xs text-gray-500 mt-1">
-                available for access
+                available to you
               </p>
             </div>
             <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -284,7 +273,7 @@ const EnhancedProviderDashboard: React.FC = () => {
                   <TableHead>Record</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Permissions</TableHead>
-                  <TableHead>Last Accessed</TableHead>
+                  <TableHead>Last Updated</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -292,27 +281,31 @@ const EnhancedProviderDashboard: React.FC = () => {
               <TableBody>
                 {filteredRecords.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.patientName}</TableCell>
-                    <TableCell>{record.recordTitle}</TableCell>
+                    <TableCell className="font-medium">{record.patientPrincipal.slice(0, 12)}...</TableCell>
+                    <TableCell>{record.title}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{record.category}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        {record.permissions.slice(0, 2).map((permission) => (
+                        {record.permissions.slice(0, 3).map((permission) => (
                           <Badge key={permission} variant="secondary" className="text-xs">
-                            {permission.replace('View', '')}
+                            {formatPermission(permission)}
                           </Badge>
                         ))}
-                        {record.permissions.length > 2 && (
+                        {record.permissions.length > 3 && (
                           <Badge variant="secondary" className="text-xs">
-                            +{record.permissions.length - 2}
+                            +{record.permissions.length - 3}
                           </Badge>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {formatDistance(new Date(record.lastAccessed), new Date(), { addSuffix: true })}
+                      {record.lastAccessed ? (
+                        formatDistance(new Date(record.lastAccessed), new Date(), { addSuffix: true })
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getStatusColor(record.status) as any}>

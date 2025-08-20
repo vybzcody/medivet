@@ -8,6 +8,7 @@ import Checkbox from '../ui/Checkbox';
 import Textarea from '../ui/Textarea';
 import { Share2, User, Search, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle, Calendar, UserPlus, Edit3, X, Shield } from 'lucide-react';
 import { formatDistance } from 'date-fns';
+import { Principal } from '@dfinity/principal';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import useUserMappingStore from '../../stores/useUserMappingStore';
 import { HealthRecord, PermissionType, PermissionPresets, UserPermission } from '../../types';
@@ -127,8 +128,17 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
   };
 
   const handleShare = async () => {
-    if (!record || !userPrincipal.trim()) {
-      setShareError('Please enter a valid user principal');
+    const entered = userPrincipal.trim();
+    if (!record || !entered) {
+      setShareError('Please enter a user principal to share with.');
+      return;
+    }
+
+    // Validate principal format early to avoid backend roundtrip
+    try {
+      Principal.fromText(entered);
+    } catch {
+      setShareError('Invalid principal format. Please paste a valid Internet Computer principal.');
       return;
     }
 
@@ -145,7 +155,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
       // Use the new granular permission system
       await grantSpecificAccess(
         record.id,
-        userPrincipal.trim(),
+        entered,
         selectedPermissions,
         expiryDate || undefined
       );
@@ -154,7 +164,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
       const actionText = isUpdateMode ? 'updated' : 'granted';
       showSuccess(
         `Permissions ${actionText} successfully!`,
-        `${userPrincipal.trim()} now has ${selectedPermissions.length} permission(s) for this record.`
+        `${entered} now has ${selectedPermissions.length} permission(s) for this record.`
       );
 
       // Reset form and close modal
@@ -175,22 +185,30 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
     } catch (error: any) {
       console.error('Error sharing record:', error);
 
-      // Show error toast with specific handling for delegation expiry
-      if (error.message?.includes('delegation has expired') || error.message?.includes('Invalid delegation expiry')) {
+      // Tailored error handling
+      const msg = String(error?.message || '');
+      if (msg.toLowerCase().includes('delegation has expired') || msg.toLowerCase().includes('invalid delegation expiry')) {
         showError(
           'Session Expired',
           'Your session has expired. Please refresh the page and try again.',
           10000
         );
+        setShareError('Session expired. Please refresh and try again.');
+      } else if (msg.toLowerCase().includes('target user not found')) {
+        showError(
+          'Target user not found',
+          'The specified principal is not registered in the system. Ask the provider to sign in and complete onboarding, then try again.',
+          10000
+        );
+        setShareError('Target user not found. Ensure the provider has onboarded and that the principal is correct.');
       } else {
         showError(
           `Failed to ${isUpdateMode ? 'update' : 'grant'} permissions`,
-          error.message || 'An unexpected error occurred. Please try again.',
+          msg || 'An unexpected error occurred. Please try again.',
           8000
         );
+        setShareError(msg || 'Failed to share record');
       }
-
-      setShareError(error.message || 'Failed to share record');
     } finally {
       setIsSharing(false);
     }
@@ -324,7 +342,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
               </div>
               
               <p className="text-xs text-gray-500 mt-1">
-                Principal ID is a unique identifier for each user on the Internet Computer
+                Paste the provider's principal ID. They must have signed in and completed onboarding for sharing to work.
               </p>
             </div>
 

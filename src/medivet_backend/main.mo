@@ -113,6 +113,8 @@ private stable var nextRecordId: Nat = 0;
 private stable var nextLogId: Nat = 0;
 // Profile permissions stable storage: owner -> list of profile permissions granted to others
 private stable var profilePermsStable: [(Principal, [ProfilePermission])] = [];
+// Onboarding completion flag per principal (persisted across upgrades)
+private stable var onboardingStable: [(Principal, Bool)] = [];
 
 // -------------------- In-Memory Maps --------------------
 private transient var users = HashMap.HashMap<Principal, User>(0, Principal.equal, Principal.hash);
@@ -120,6 +122,8 @@ private transient var records = HashMap.HashMap<Nat, HealthRecord>(0, Nat.equal,
 private transient var logs = HashMap.HashMap<Nat, AccessLog>(0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
 // Owner -> profile permissions granted to others
 private transient var profilePermissionsByOwner = HashMap.HashMap<Principal, [ProfilePermission]>(0, Principal.equal, Principal.hash);
+// Onboarding completion in-memory map
+private transient var onboardingCompleted = HashMap.HashMap<Principal, Bool>(0, Principal.equal, Principal.hash);
 
 
 // -------------------- Helpers --------------------
@@ -700,6 +704,17 @@ public shared func fromNat(len : Nat, n : Nat) : async [Nat8] {
 //   };
 // };
 
+// -------------------- Onboarding Completion --------------------
+// Mark the caller's onboarding as completed
+public shared ({ caller }) func set_onboarding_completed(): async () {
+  onboardingCompleted.put(caller, true);
+};
+
+// Check whether the caller has completed onboarding
+public shared ({ caller }) func get_onboarding_completed(): async Bool {
+  switch (onboardingCompleted.get(caller)) { case (?b) b; case null false };
+};
+
 // -------------------- Profile Permissions (Profile-level sharing) --------------------
 // Grant profile permissions from the caller (must be a patient) to a target user
 public shared ({ caller }) func grant_profile_permission(
@@ -838,6 +853,7 @@ system func preupgrade() {
   recordsStable := Iter.toArray(records.entries());
   logsStable := Iter.toArray(logs.entries());
   profilePermsStable := Iter.toArray(profilePermissionsByOwner.entries());
+  onboardingStable := Iter.toArray(onboardingCompleted.entries());
 };
 
 system func postupgrade() {
@@ -845,10 +861,12 @@ system func postupgrade() {
   records := HashMap.fromIter<Nat, HealthRecord>(recordsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
   logs := HashMap.fromIter<Nat, AccessLog>(logsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
   profilePermissionsByOwner := HashMap.fromIter<Principal, [ProfilePermission]>(profilePermsStable.vals(), 0, Principal.equal, Principal.hash);
+  onboardingCompleted := HashMap.fromIter<Principal, Bool>(onboardingStable.vals(), 0, Principal.equal, Principal.hash);
   usersStable := [];
   recordsStable := [];
   logsStable := [];
   profilePermsStable := [];
+  onboardingStable := [];
 };
 
 };
