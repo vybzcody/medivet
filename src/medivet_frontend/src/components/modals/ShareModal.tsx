@@ -110,34 +110,62 @@ const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId })
     );
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!record || !selectedProvider) {
       alert('An error occurred. Please try again.');
       return;
     }
 
-    // In a real app, this would call the backend to share the record
-    console.log('Sharing record:', {
-      recordId: record.id,
-      provider: selectedProvider.license,
-      permissions,
-      expiryDate,
-      note
-    });
+    try {
+      // Use the principal ID for sharing (either from mock provider or entered manually)
+      const principalToShare = selectedProvider.license.startsWith('Principal User') 
+        ? principalId 
+        : selectedProvider.license; // For mock providers, use license as principal for demo
+      
+      console.log('Sharing record:', {
+        recordId: record.id,
+        principalToShare,
+        permissions,
+        expiryDate,
+        note
+      });
 
-    alert('Record shared successfully!');
-    onOpenChange(false);
-    
-    // Reset state on close
-    setTimeout(() => {
-      setStep(1);
-      setSelectedProvider(null);
-      setPermissions([]);
-      setNote('');
-      setSearchQuery('');
-      setPrincipalId('');
-      setInviteMode(false);
-    }, 300);
+      // Convert frontend permissions to backend format
+      const backendPermissions = permissions.map(p => {
+        switch(p) {
+          case 'basic_info': return 'ReadBasicInfo';
+          case 'full_history': return 'ReadMedicalHistory';
+          case 'files': return 'ReadImaging';
+          default: return 'ReadBasicInfo';
+        }
+      });
+
+      // Call the backend to grant access
+      const { grantSpecificAccess } = useHealthRecordStore.getState();
+      await grantSpecificAccess(
+        record.id, 
+        principalToShare, 
+        backendPermissions, 
+        expiryDate
+      );
+
+      alert('Record shared successfully!');
+      onOpenChange(false);
+      
+      // Reset state on close
+      setTimeout(() => {
+        setStep(1);
+        setSelectedProvider(null);
+        setPermissions([]);
+        setNote('');
+        setSearchQuery('');
+        setPrincipalId('');
+        setInviteMode(false);
+      }, 300);
+    } catch (error: any) {
+      console.error('Error sharing record:', error);
+      alert(`Failed to share record: ${error.message}`);
+    }
   };
 
   const summary = useMemo(() => {

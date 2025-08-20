@@ -169,6 +169,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
             frontendRole = UserRole.Patient;
           } else if (user.role.Provider !== undefined) {
             frontendRole = UserRole.HealthcareProvider;
+          } else if (user.role.Admin !== undefined) {
+            frontendRole = UserRole.Admin;
           }
           
           // Update the store with the user role
@@ -289,6 +291,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
           frontendRole = UserRole.Patient;
         } else if (user.role.Provider !== undefined) {
           frontendRole = UserRole.HealthcareProvider;
+        } else if (user.role.Admin !== undefined) {
+          frontendRole = UserRole.Admin;
         }
         
         // Update the store with the user role

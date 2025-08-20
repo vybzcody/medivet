@@ -22,6 +22,7 @@ import useProfileStore from '../../stores/useProfileStore';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import UploadModal from '../modals/UploadModal';
 import ShareModal from '../modals/ShareModal';
+import ViewRecordModal from '../modals/ViewRecordModal';
 import AiInsightConsentModal from '../modals/AiInsightConsentModal';
 import AiInsightResultModal from '../modals/AiInsightResultModal';
 import WithdrawalModal from '../modals/WithdrawalModal';
@@ -47,10 +48,12 @@ const EnhancedPatientDashboard: React.FC = () => {
   
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [showAiConsentModal, setShowAiConsentModal] = useState(false);
   const [showAiResultModal, setShowAiResultModal] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null);
   const [aiInsightData, setAiInsightData] = useState<any>(null);
 
   // Add polling support
@@ -71,6 +74,17 @@ const EnhancedPatientDashboard: React.FC = () => {
 
   const handleShare = (recordId: number) => {
     setSelectedRecordId(recordId);
+    setShowShareModal(true);
+  };
+
+  const handleView = (record: HealthRecord) => {
+    setSelectedRecord(record);
+    setShowViewModal(true);
+  };
+
+  const handleViewModalShare = (recordId: number) => {
+    setSelectedRecordId(recordId);
+    setShowViewModal(false);
     setShowShareModal(true);
   };
 
@@ -310,7 +324,11 @@ const EnhancedPatientDashboard: React.FC = () => {
                     <Share2 className="h-3 w-3 mr-1" />
                     Share
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleView(record)}
+                  >
                     <Eye className="h-3 w-3 mr-1" />
                     View
                   </Button>
@@ -331,6 +349,13 @@ const EnhancedPatientDashboard: React.FC = () => {
         open={showShareModal}
         onOpenChange={setShowShareModal}
         recordId={selectedRecordId}
+      />
+      
+      <ViewRecordModal
+        open={showViewModal}
+        onOpenChange={setShowViewModal}
+        record={selectedRecord}
+        onShare={handleViewModalShare}
       />
 
       <AiInsightConsentModal
