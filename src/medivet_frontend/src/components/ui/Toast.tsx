@@ -108,14 +108,8 @@ const Toast: React.FC<ToastProps> = ({
   return (
     <div
       className={`
-        fixed z-50 max-w-sm w-full transition-all duration-300 ease-in-out
+        w-full max-w-sm transition-all duration-300 ease-in-out
         ${isVisible && !isExiting ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
-        
-        /* Desktop positioning - bottom right */
-        md:bottom-4 md:right-4
-        
-        /* Mobile positioning - top center with notification style */
-        top-4 left-4 right-4 md:left-auto md:right-4 md:top-auto
       `}
     >
       <div

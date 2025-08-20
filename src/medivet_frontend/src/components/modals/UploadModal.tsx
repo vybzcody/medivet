@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { UploadCloud, FileText, Check } from 'lucide-react';
 import useAuthStore from '../../stores/useAuthStore';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
+import { useToast } from '../../hooks/useToast';
 
 interface UploadModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface UploadModalProps {
 const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
   const { principal } = useAuthStore();
   const { createRecord } = useHealthRecordStore();
+  const { showSuccess, showError, showWarning } = useToast();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
@@ -46,12 +48,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
 
   const handleUpload = async () => {
     if (!principal || !formData.title || !formData.category) {
-      alert('Please fill in all required fields');
+      showWarning('Missing Information', 'Please fill in all required fields');
       return;
     }
 
     if (uploadingFiles.length === 0) {
-      alert('Please select at least one file');
+      showWarning('No Files Selected', 'Please select at least one file to upload');
       return;
     }
 
@@ -76,12 +78,19 @@ const UploadModal: React.FC<UploadModalProps> = ({ open, onOpenChange }) => {
 
       setUploading(false);
       setUploadProgress(0);
-      alert(`Health record uploaded successfully! Record ID: ${recordId}. ${uploadingFiles.length} file(s) encrypted and stored.`);
+      
+      showSuccess(
+        'Upload Successful!',
+        `Health record "${formData.title}" uploaded and encrypted. Record ID: ${recordId}`
+      );
     } catch (error) {
       console.error('Error creating health record:', error);
       setUploading(false);
       setUploadProgress(0);
-      alert('Failed to upload health record. Please try again.');
+      showError(
+        'Upload Failed',
+        error instanceof Error ? error.message : 'Failed to upload health record. Please try again.'
+      );
       return;
     }
     

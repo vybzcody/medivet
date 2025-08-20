@@ -3,6 +3,7 @@ import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import AutocompleteInput from '../ui/AutocompleteInput';
 import { useMedicalData } from '../../hooks/useMedicalData';
 import { validateForm, validateRequired, validateMedicalText } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
 
 interface AddRecordModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface AddRecordModalProps {
 
 const AddRecordModal: React.FC<AddRecordModalProps> = ({ isOpen, onClose }) => {
   const { createRecord, isLoading, error } = useHealthRecordStore();
+  const { showSuccess, showError } = useToast();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -73,6 +75,12 @@ const AddRecordModal: React.FC<AddRecordModalProps> = ({ isOpen, onClose }) => {
         validation.sanitizedData.content
       );
       
+      // Show success toast
+      showSuccess(
+        'Health Record Created!',
+        `"${validation.sanitizedData.title}" has been encrypted and saved successfully.`
+      );
+      
       // Reset form and close modal on success
       setFormData({
         title: '',
@@ -85,6 +93,10 @@ const AddRecordModal: React.FC<AddRecordModalProps> = ({ isOpen, onClose }) => {
       onClose();
     } catch (err) {
       console.error('Failed to create health record:', err);
+      showError(
+        'Failed to Create Record',
+        err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.'
+      );
     }
   };
 

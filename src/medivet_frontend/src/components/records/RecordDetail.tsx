@@ -20,11 +20,13 @@ import { formatDistance } from 'date-fns';
 import useAuthStore from '../../stores/useAuthStore';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import { UserRole, HealthRecord, UserPermission } from '../../types';
+import { useToast } from '../../hooks/useToast';
 
 const RecordDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { principal, userRole } = useAuthStore();
+  const { showSuccess, showError } = useToast();
   const { 
     records, 
     sharedRecords, 
@@ -91,9 +93,15 @@ const RecordDetail: React.FC = () => {
       // Simulate decryption process
       await new Promise(resolve => setTimeout(resolve, 2000));
       setDecrypted(true);
-      alert('Record decrypted successfully!');
+      showSuccess(
+        'Record Decrypted!',
+        'You can now view the medical record contents securely.'
+      );
     } catch (error) {
-      alert('Failed to decrypt record');
+      showError(
+        'Decryption Failed',
+        'Unable to decrypt the record. Please check your permissions and try again.'
+      );
     } finally {
       setDecrypting(false);
     }
