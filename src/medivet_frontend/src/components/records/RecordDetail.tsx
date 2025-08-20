@@ -4,7 +4,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Separator from '../ui/Separator';
-import ShareRecordModal from '../dashboard/ShareRecordModal';
+import ShareModal from '../modals/ShareModal';
 import { 
   FileText, 
   ArrowLeft, 
@@ -38,6 +38,7 @@ const RecordDetail: React.FC = () => {
   const [decrypting, setDecrypting] = useState(false);
   const [decrypted, setDecrypted] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
 
   const recordId = parseInt(id || '0');
   
@@ -276,7 +277,7 @@ const RecordDetail: React.FC = () => {
                   {isOwner && (
                     <Button 
                       variant="outline" 
-                      onClick={() => setShowShareModal(true)}
+                    onClick={() => { setSelectedRecordId(record.id); setShowShareModal(true); }}
                     >
                       <Share2 className="mr-2 h-4 w-4" />
                       Share
@@ -337,11 +338,11 @@ const RecordDetail: React.FC = () => {
       )}
       
       {/* Share Record Modal */}
-      {showShareModal && record && isOwner && (
-        <ShareRecordModal
-          record={record}
-          isOpen={showShareModal}
-          onClose={() => setShowShareModal(false)}
+      {isOwner && (
+        <ShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          recordId={selectedRecordId}
         />
       )}
     </div>

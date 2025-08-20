@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/Dialog';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -6,10 +6,13 @@ import Label from '../ui/Label';
 import { Avatar, AvatarFallback } from '../ui/Avatar';
 import Checkbox from '../ui/Checkbox';
 import Textarea from '../ui/Textarea';
-import { Share2, User, Search, ArrowRight, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Share2, User, Search, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle, Calendar, UserPlus, Edit3, X, Shield } from 'lucide-react';
 import { formatDistance } from 'date-fns';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
-import { HealthRecord } from '../../types';
+import useUserMappingStore from '../../stores/useUserMappingStore';
+import { HealthRecord, PermissionType, PermissionPresets, UserPermission } from '../../types';
+import PrincipalPill from '../ui/PrincipalPill';
+import { useToast } from '../../hooks/useToast';
 
 interface ShareModalProps {
   open: boolean;
@@ -17,326 +20,461 @@ interface ShareModalProps {
   recordId: number | null;
 }
 
-// Mock provider data
-const mockProviders = [
-  {
-    name: 'Dr. Emily Carter',
-    license: 'MD12345',
-    specialty: 'Cardiology',
-    contact: 'emily.carter@hospital.com',
-    whitelisted: true,
-    reputation: 95,
-    organization: 'General Hospital',
-    lastInteraction: Date.now() - 86400000 * 2 // 2 days ago
-  },
-  {
-    name: 'Dr. John Smith',
-    license: 'MD67890',
-    specialty: 'Internal Medicine',
-    contact: 'john.smith@clinic.com',
-    whitelisted: true,
-    reputation: 88,
-    organization: 'City Medical Clinic',
-    lastInteraction: Date.now() - 86400000 * 7 // 7 days ago
-  },
-  {
-    name: 'Dr. Sarah Johnson',
-    license: 'MD11111',
-    specialty: 'Dermatology',
-    contact: 'sarah.johnson@derma.com',
-    whitelisted: true,
-    reputation: 92,
-    organization: 'Skin Care Center',
-    lastInteraction: null
-  }
-];
-
 const ShareModal: React.FC<ShareModalProps> = ({ open, onOpenChange, recordId }) => {
+  console.log('🔄 ShareModal rendered with props:', { open, recordId });
+  
   const { records } = useHealthRecordStore();
-  const [step, setStep] = useState(1);
+  const [userPrincipal, setUserPrincipal] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState<any>(null);
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [expiryDate, setExpiryDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 30);
-    return date.toISOString().split('T')[0];
-  });
-  const [note, setNote] = useState('');
-  const [inviteMode, setInviteMode] = useState(false);
-  const [principalId, setPrincipalId] = useState('');
+  const [showUserList, setShowUserList] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [selectedPermissions, setSelectedPermissions] = useState<PermissionType[]>([...PermissionPresets.VIEW_ONLY]);
+  const [selectedPreset, setSelectedPreset] = useState<string>('VIEW_ONLY');
+  const [expiryDate, setExpiryDate] = useState<string>('');
+  const [customPermissions, setCustomPermissions] = useState(false);
+  const [existingPermission, setExistingPermission] = useState<UserPermission | null>(null);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
 
-  const record = recordId ? records.find(r => r.id === recordId) : null;
+  const { grantAccess, grantSpecificAccess } = useHealthRecordStore();
+  const { searchUsers, getAllUsers, getDisplayName } = useUserMappingStore();
+  const { showSuccess, showError, showWarning } = useToast();
 
-  const filteredProviders = useMemo(() => {
-    if (!searchQuery) return mockProviders.filter(p => p.whitelisted);
-    return mockProviders.filter(p => 
-      p.whitelisted &&
-      (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       p.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       p.organization?.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [searchQuery]);
+  const record = (recordId !== null && recordId !== undefined) ? records.find(r => r.id === recordId) : null;
+  console.log('📝 Found record:', record ? `${record.title} (ID: ${record.id})` : 'null');
+  console.log('📚 Total records available:', records.length);
 
-  const handleSelectProvider = (provider: any) => {
-    setSelectedProvider(provider);
-    if (provider.name === 'Dr. John Smith') {
-      setPermissions(['full_history']);
-    }
-    setInviteMode(false);
-    setStep(2);
+  // Get filtered user suggestions
+  const userSuggestions = searchQuery.trim() 
+    ? searchUsers(searchQuery).slice(0, 5)
+    : getAllUsers().slice(0, 5);
+
+  const handleUserSelect = (principal: string) => {
+    setUserPrincipal(principal);
+    setSearchQuery('');
+    setShowUserList(false);
   };
 
-  const handleInviteByPrincipal = () => {
-    if (!principalId) {
-      alert('Please enter a valid Principal ID');
-      return;
+  // Check for existing permissions when user principal changes
+  useEffect(() => {
+    if (userPrincipal.trim() && record) {
+      const existing = record.user_permissions?.find(p => p.user === userPrincipal.trim());
+      if (existing) {
+        setExistingPermission(existing);
+        setIsUpdateMode(true);
+
+        // Pre-populate form with existing permissions
+        setSelectedPermissions([...existing.permissions]);
+        setCustomPermissions(true);
+        setSelectedPreset('CUSTOM');
+
+        // Set expiry date if exists
+        if (existing.expires_at) {
+          const expiryMs = Number(existing.expires_at) / 1000000; // Convert from nanoseconds
+          const expiryDateStr = new Date(expiryMs).toISOString().split('T')[0];
+          setExpiryDate(expiryDateStr);
+        }
+
+        showWarning(
+          'Existing Permissions Found',
+          `This user already has permissions for this record. You can update them.`,
+          8000
+        );
+      } else {
+        setExistingPermission(null);
+        setIsUpdateMode(false);
+        // Reset to defaults when no existing permissions
+        setSelectedPermissions([...PermissionPresets.VIEW_ONLY]);
+        setSelectedPreset('VIEW_ONLY');
+        setCustomPermissions(false);
+        setExpiryDate('');
+      }
+    } else {
+      setExistingPermission(null);
+      setIsUpdateMode(false);
     }
-    const mockProvider = {
-      name: `Principal User (${principalId.substring(0, 8)}...)`,
-      license: principalId,
-      specialty: 'Invited Provider',
-      contact: '',
-      whitelisted: true,
-      reputation: 0,
-      organization: 'Invited via Principal ID'
-    };
-    handleSelectProvider(mockProvider);
+  }, [userPrincipal, record, showWarning]);
+
+  // Helper functions for permission management
+  const handlePresetChange = (preset: string) => {
+    setSelectedPreset(preset);
+    setCustomPermissions(false);
+    switch (preset) {
+      case 'VIEW_ONLY':
+        setSelectedPermissions([...PermissionPresets.VIEW_ONLY]);
+        break;
+      case 'FULL_ACCESS':
+        setSelectedPermissions([...PermissionPresets.FULL_ACCESS]);
+        break;
+      case 'EMERGENCY_CONTACT':
+        setSelectedPermissions([...PermissionPresets.EMERGENCY_CONTACT]);
+        break;
+      case 'CUSTOM':
+        setCustomPermissions(true);
+        break;
+    }
   };
 
-  const handlePermissionChange = (permission: string, checked: boolean) => {
-    setPermissions(prev => 
-      checked ? [...prev, permission] : prev.filter(p => p !== permission)
-    );
+  const handlePermissionToggle = (permission: PermissionType) => {
+    setSelectedPermissions(prev => {
+      if (prev.includes(permission)) {
+        return prev.filter(p => p !== permission);
+      } else {
+        return [...prev, permission];
+      }
+    });
   };
 
   const handleShare = async () => {
-    if (!record || !selectedProvider) {
-      alert('An error occurred. Please try again.');
+    if (!record || !userPrincipal.trim()) {
+      setShareError('Please enter a valid user principal');
       return;
     }
 
+    if (selectedPermissions.length === 0) {
+      setShareError('Please select at least one permission');
+      return;
+    }
+
+    setIsSharing(true);
+    setShareError(null);
+    setShareSuccess(false);
+
     try {
-      // Use the principal ID for sharing (either from mock provider or entered manually)
-      const principalToShare = selectedProvider.license.startsWith('Principal User') 
-        ? principalId 
-        : selectedProvider.license; // For mock providers, use license as principal for demo
-      
-      console.log('Sharing record:', {
-        recordId: record.id,
-        principalToShare,
-        permissions,
-        expiryDate,
-        note
-      });
-
-      // Convert frontend permissions to backend format
-      const backendPermissions = permissions.map(p => {
-        switch(p) {
-          case 'basic_info': return 'ReadBasicInfo';
-          case 'full_history': return 'ReadMedicalHistory';
-          case 'files': return 'ReadImaging';
-          default: return 'ReadBasicInfo';
-        }
-      });
-
-      // Call the backend to grant access
-      const { grantSpecificAccess } = useHealthRecordStore.getState();
+      // Use the new granular permission system
       await grantSpecificAccess(
-        record.id, 
-        principalToShare, 
-        backendPermissions, 
-        expiryDate
+        record.id,
+        userPrincipal.trim(),
+        selectedPermissions,
+        expiryDate || undefined
       );
 
-      alert('Record shared successfully!');
+      // Show success toast
+      const actionText = isUpdateMode ? 'updated' : 'granted';
+      showSuccess(
+        `Permissions ${actionText} successfully!`,
+        `${userPrincipal.trim()} now has ${selectedPermissions.length} permission(s) for this record.`
+      );
+
+      // Reset form and close modal
       onOpenChange(false);
       
-      // Reset state on close
+      // Reset state
       setTimeout(() => {
-        setStep(1);
-        setSelectedProvider(null);
-        setPermissions([]);
-        setNote('');
-        setSearchQuery('');
-        setPrincipalId('');
-        setInviteMode(false);
+        setUserPrincipal('');
+        setSelectedPermissions([...PermissionPresets.VIEW_ONLY]);
+        setSelectedPreset('VIEW_ONLY');
+        setExpiryDate('');
+        setCustomPermissions(false);
+        setExistingPermission(null);
+        setIsUpdateMode(false);
+        setShareError(null);
+        setShareSuccess(false);
       }, 300);
     } catch (error: any) {
       console.error('Error sharing record:', error);
-      alert(`Failed to share record: ${error.message}`);
+
+      // Show error toast with specific handling for delegation expiry
+      if (error.message?.includes('delegation has expired') || error.message?.includes('Invalid delegation expiry')) {
+        showError(
+          'Session Expired',
+          'Your session has expired. Please refresh the page and try again.',
+          10000
+        );
+      } else {
+        showError(
+          `Failed to ${isUpdateMode ? 'update' : 'grant'} permissions`,
+          error.message || 'An unexpected error occurred. Please try again.',
+          8000
+        );
+      }
+
+      setShareError(error.message || 'Failed to share record');
+    } finally {
+      setIsSharing(false);
     }
   };
 
-  const summary = useMemo(() => {
-    if (step !== 2 || !selectedProvider) return '';
-    const fileCount = permissions.includes('files') ? 'all files' : 'no files';
-    return `You are sharing ${fileCount} with ${selectedProvider.name} until ${new Date(expiryDate).toLocaleDateString()}.`;
-  }, [step, selectedProvider, permissions, expiryDate]);
+  const handleClose = () => {
+    setUserPrincipal('');
+    setShareError(null);
+    setShareSuccess(false);
+    setSelectedPermissions([...PermissionPresets.VIEW_ONLY]);
+    setSelectedPreset('VIEW_ONLY');
+    setExpiryDate('');
+    setCustomPermissions(false);
+    setExistingPermission(null);
+    setIsUpdateMode(false);
+    onOpenChange(false);
+  };
 
-  if (!record) return null;
+  if (!record) {
+    console.log('❌ ShareModal: No record found, returning null');
+    return null;
+  }
+
+  console.log('✅ ShareModal: Rendering dialog with open =', open);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Share2 className="h-5 w-5" />
-            <span>Share "{record.title}"</span>
+            {isUpdateMode ? (
+              <Edit3 className="h-5 w-5 text-orange-600" />
+            ) : (
+              <Share2 className="h-5 w-5 text-blue-600" />
+            )}
+            <span>{isUpdateMode ? 'Update Permissions' : 'Share Record'}: "{record.title}"</span>
           </DialogTitle>
           <DialogDescription>
             Grant secure, auditable, time-bound access to a provider.
           </DialogDescription>
         </DialogHeader>
 
-        {step === 1 && !inviteMode && (
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input 
-                placeholder="Search providers by name, specialty..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+        <div className="space-y-6 py-4">
+          {/* Record Info */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-medium text-gray-800 mb-2">{record.title}</h3>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>Category: {record.category}</p>
+              <p>Provider: {record.provider}</p>
+              <p>Type: {record.record_type}</p>
+              <p>Date: {new Date(Number(record.record_date) / 1000000).toLocaleDateString()}</p>
             </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {filteredProviders.map(provider => (
-                <div 
-                  key={provider.license} 
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleSelectProvider(provider)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarFallback>{provider.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">{provider.name}</p>
-                      <p className="text-sm text-gray-500">{provider.organization}</p>
+          </div>
+
+          {/* Share Form */}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="userPrincipal" className="block text-sm font-medium text-gray-700 mb-2">
+                Share with User
+              </label>
+              
+              {/* Search Input */}
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Search users by name or principal..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowUserList(true);
+                  }}
+                  onFocus={() => setShowUserList(true)}
+                  disabled={isSharing}
+                />
+                
+                {/* User Suggestions Dropdown */}
+                {showUserList && userSuggestions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                    <div className="p-2">
+                      <p className="text-xs text-gray-500 mb-2">Recent users:</p>
+                      {userSuggestions.map((user) => (
+                        <button
+                          key={user.principal}
+                          type="button"
+                          onClick={() => handleUserSelect(user.principal)}
+                          className="w-full p-2 text-left hover:bg-gray-50 rounded transition-colors"
+                        >
+                          <PrincipalPill
+                            principal={user.principal}
+                            variant="full"
+                            showRole={true}
+                            showCopy={false}
+                            className="w-full justify-start"
+                          />
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Last interaction</p>
-                    <p className="text-xs font-medium">
-                      {provider.lastInteraction ? 
-                        formatDistance(new Date(provider.lastInteraction), new Date(), { addSuffix: true }) : 
-                        'Never'
-                      }
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Button variant="outline" className="w-full" onClick={() => setInviteMode(true)}>
-              Provider not found? Invite by Principal ID
-            </Button>
-          </div>
-        )}
+                )}
+              </div>
 
-        {step === 1 && inviteMode && (
-          <div className="space-y-4">
-            <Label htmlFor="principalId">Provider's Principal ID</Label>
-            <Input 
-              id="principalId"
-              placeholder="Enter Principal ID..."
-              value={principalId}
-              onChange={(e) => setPrincipalId(e.target.value)}
-            />
-            <div className="flex space-x-2">
-              <Button variant="outline" className="w-full" onClick={() => setInviteMode(false)}>
+              {/* Selected User Display */}
+              {userPrincipal && (
+                <div className="mb-2">
+                  <p className="text-xs text-gray-500 mb-1">Selected user:</p>
+                  <PrincipalPill
+                    principal={userPrincipal}
+                    variant="full"
+                    showRole={true}
+                    className="mb-2"
+                  />
+                </div>
+              )}
+              
+              {/* Manual Principal Input */}
+              <div className="relative">
+                <UserPlus className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="text"
+                  id="userPrincipal"
+                  value={userPrincipal}
+                  onChange={(e) => {
+                    setUserPrincipal(e.target.value);
+                    setShowUserList(false);
+                  }}
+                  placeholder="Or enter principal ID manually..."
+                  className="pl-10"
+                  disabled={isSharing}
+                />
+              </div>
+              
+              <p className="text-xs text-gray-500 mt-1">
+                Principal ID is a unique identifier for each user on the Internet Computer
+              </p>
+            </div>
+
+            {/* Permission Selection */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Shield className="inline h-4 w-4 mr-1" />
+                  Access Permissions
+                </label>
+
+                {/* Permission Presets */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('VIEW_ONLY')}
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'VIEW_ONLY'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    View Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('FULL_ACCESS')}
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'FULL_ACCESS'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    Full Access
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('EMERGENCY_CONTACT')}
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'EMERGENCY_CONTACT'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    Emergency
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePresetChange('CUSTOM')}
+                    className={`p-2 text-sm rounded-md border transition-colors ${selectedPreset === 'CUSTOM'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                  >
+                    Custom
+                  </button>
+                </div>
+
+                {/* Custom Permission Selection */}
+                {customPermissions && (
+                  <div className="bg-gray-50 p-3 rounded-md space-y-2">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Select specific permissions:</p>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      {Object.values(PermissionType).map((permission) => (
+                        <label key={permission} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={permission}
+                            checked={selectedPermissions.includes(permission)}
+                            onCheckedChange={(checked) => handlePermissionToggle(permission)}
+                          />
+                          <span className="text-gray-700">
+                            {permission.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected Permissions Display */}
+                {!customPermissions && selectedPermissions.length > 0 && (
+                  <div className="bg-blue-50 p-3 rounded-md">
+                    <p className="text-sm font-medium text-blue-700 mb-1">Selected permissions:</p>
+                    <div className="text-xs text-blue-600 space-y-1">
+                      {selectedPermissions.map((permission) => (
+                        <div key={permission} className="flex items-center space-x-1">
+                          <CheckCircle className="h-3 w-3" />
+                          <span>
+                            {permission.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Expiry Date */}
+              <div>
+                <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Calendar className="inline h-4 w-4 mr-1" />
+                  Access Expiry (Optional)
+                </label>
+                <Input
+                  type="date"
+                  id="expiryDate"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  disabled={isSharing}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave empty for permanent access
+                </p>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {shareError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{shareError}</p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {shareSuccess && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-600">Record shared successfully!</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isSharing}
+              >
                 Cancel
               </Button>
-              <Button className="w-full" onClick={handleInviteByPrincipal}>
-                Confirm & Proceed
+              <Button
+                type="button"
+                onClick={handleShare}
+                disabled={isSharing || !userPrincipal.trim()}
+                className={isUpdateMode ? 'bg-orange-600 hover:bg-orange-700' : undefined}
+              >
+                {isSharing
+                  ? (isUpdateMode ? 'Updating...' : 'Sharing...')
+                  : (isUpdateMode ? 'Update Permissions' : 'Share Record')
+                }
               </Button>
             </div>
-          </div>
-        )}
-
-        {step === 2 && selectedProvider && (
-          <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-gray-50 flex items-center space-x-3">
-              <Avatar>
-                <AvatarFallback>{selectedProvider.name.split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium">{selectedProvider.name}</p>
-                <p className="text-sm text-gray-500">{selectedProvider.organization}</p>
-              </div>
-            </div>
-            
-            <div>
-              <Label>Permissions</Label>
-              <div className="space-y-2 mt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="basic_info" 
-                    onCheckedChange={(c) => handlePermissionChange('basic_info', !!c)} 
-                    checked={permissions.includes('basic_info')} 
-                  />
-                  <Label htmlFor="basic_info">Basic Info</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="full_history" 
-                    onCheckedChange={(c) => handlePermissionChange('full_history', !!c)} 
-                    checked={permissions.includes('full_history')} 
-                  />
-                  <Label htmlFor="full_history">Full History</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="files" 
-                    onCheckedChange={(c) => handlePermissionChange('files', !!c)} 
-                    checked={permissions.includes('files')} 
-                  />
-                  <Label htmlFor="files">Files</Label>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="expiry">Access Expiry</Label>
-              <Input 
-                id="expiry" 
-                type="date" 
-                value={expiryDate} 
-                onChange={(e) => setExpiryDate(e.target.value)} 
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="note">Optional Note (256 char)</Label>
-              <Textarea 
-                id="note" 
-                value={note} 
-                onChange={(e) => setNote(e.target.value)} 
-                maxLength={256} 
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="pt-4 space-y-3">
-          <div className="bg-gray-50 p-3 rounded-lg text-center text-sm text-gray-600">
-            <p>{summary || 'Select a provider to configure permissions.'}</p>
-          </div>
-          <div className="flex space-x-3">
-            {step === 2 && (
-              <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-            )}
-            <Button 
-              onClick={handleShare}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
-              disabled={step === 1 || !selectedProvider}
-            >
-              {step === 1 ? 'Next' : 'Share Record'}
-              {step === 1 && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
           </div>
         </div>
       </DialogContent>

@@ -72,9 +72,20 @@ const EnhancedPatientDashboard: React.FC = () => {
     }
   }, [principal, fetchPatientProfile, fetchRecords]);
 
+  // Debug: Track showShareModal state changes
+  useEffect(() => {
+    console.log('📊 showShareModal state changed to:', showShareModal);
+    console.log('🎯 selectedRecordId is:', selectedRecordId);
+  }, [showShareModal, selectedRecordId]);
+
   const handleShare = (recordId: number) => {
+    console.log('🔄 handleShare called with recordId:', recordId);
+    console.log('📋 Current showShareModal state:', showShareModal);
     setSelectedRecordId(recordId);
+    console.log('🎯 Setting selectedRecordId to:', recordId);
     setShowShareModal(true);
+    console.log('🚀 Setting showShareModal to true');
+    console.log('📋 Updated showShareModal state should be:', true);
   };
 
   const handleView = (record: HealthRecord) => {
@@ -83,9 +94,15 @@ const EnhancedPatientDashboard: React.FC = () => {
   };
 
   const handleViewModalShare = (recordId: number) => {
+    console.log('🔄 handleViewModalShare called with recordId:', recordId);
+    console.log('📋 Current showShareModal state:', showShareModal);
+    console.log('👁️ Current showViewModal state:', showViewModal);
     setSelectedRecordId(recordId);
+    console.log('🎯 Setting selectedRecordId to:', recordId);
     setShowViewModal(false);
+    console.log('❌ Setting showViewModal to false');
     setShowShareModal(true);
+    console.log('🚀 Setting showShareModal to true');
   };
 
   const handleAiInsightGenerated = (insight: any) => {

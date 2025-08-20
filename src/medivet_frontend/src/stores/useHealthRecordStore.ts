@@ -458,84 +458,75 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       throw error;
     }
   },
-  
-  grantAccess: async (recordId, userPrincipal) => {
+grantAccess: async (recordId, userPrincipal) => {
     set({ isLoading: true, error: null });
     try {
       const { identity } = useAuthStore.getState();
-      
-      if (!identity) {
-        throw new Error('User not authenticated');
-      }
-      
-      // Get the authenticated actor
+      if (!identity) throw new Error('User not authenticated');
       const { actor } = await createAuthenticatedActor(identity);
-      
-      // Convert userPrincipal string to Principal
       const userPrincipalObj = Principal.fromText(userPrincipal);
-      
-      // Grant basic view-only access by default
-      const basicPermissions = ['ReadBasicInfo']; // Default to basic info access
-      
-      // Call the backend method
+      // Basic preset maps to ReadBasicInfo
+      const backendPermissions = [{ ReadBasicInfo: null }];
       const result = await actor.grantSpecificAccess(
         BigInt(recordId),
         userPrincipalObj,
-        basicPermissions,
-        [] // No expiry
+        backendPermissions,
+        [] // no expiry
       );
-      
       if ('ok' in result) {
         set({ isLoading: false });
       } else {
         throw new Error(result.err || 'Failed to grant access');
       }
     } catch (error: any) {
-      console.error("Error granting access:", error);
+      console.error('Error granting access:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
-  
-  grantSpecificAccess: async (recordId, userPrincipal, permissions, expiryDate) => {
+
+grantSpecificAccess: async (recordId, userPrincipal, permissions, expiryDate) => {
     set({ isLoading: true, error: null });
     try {
       const { identity } = useAuthStore.getState();
-      
-      if (!identity) {
-        throw new Error('User not authenticated');
-      }
-      
-      // Get the authenticated actor
+      if (!identity) throw new Error('User not authenticated');
       const { actor } = await createAuthenticatedActor(identity);
-      
-      // Convert userPrincipal string to Principal
       const userPrincipalObj = Principal.fromText(userPrincipal);
-      
-      // Convert frontend permission strings to backend enum format
-      const backendPermissions = permissions.map(p => ({ [p]: null }));
-      
-      // Convert expiry date to timestamp if provided
-      let expiryTimestamp = null;
-      if (expiryDate) {
-        expiryTimestamp = new Date(expiryDate).getTime();
-      }
-      
-      // Call the backend method
+
+      // Map frontend PermissionType enum values to backend variant names
+const mapPermission = (p: string) => {
+        switch (p) {
+          case 'READ_BASIC_INFO': return { ReadBasicInfo: null };
+          case 'READ_MEDICAL_HISTORY': return { ReadMedicalHistory: null };
+          case 'READ_MEDICATIONS': return { ReadMedications: null };
+          case 'READ_ALLERGIES': return { ReadAllergies: null };
+          case 'READ_LAB_RESULTS': return { ReadLabResults: null };
+          case 'READ_IMAGING': return { ReadImaging: null };
+          case 'READ_MENTAL_HEALTH': return { ReadMentalHealth: null };
+          case 'WRITE_NOTES': return { WriteNotes: null };
+          case 'WRITE_PRESCRIPTIONS': return { WritePrescriptions: null };
+          case 'EMERGENCY_ACCESS': return { EmergencyAccess: null };
+          default: throw new Error(`Unknown permission: ${p}`);
+        }
+      };
+      const backendPermissions = permissions.map(mapPermission);
+
+      // Convert expiry date (yyyy-mm-dd) to ms BigInt (backend converts mse ns)
+      const expiryOpt = expiryDate ? [BigInt(new Date(expiryDate).getTime())] : [];
+
       const result = await actor.grantSpecificAccess(
         BigInt(recordId),
         userPrincipalObj,
         backendPermissions,
-        expiryTimestamp ? [expiryTimestamp] : []
+        expiryOpt
       );
-      
       if ('ok' in result) {
         set({ isLoading: false });
       } else {
         throw new Error(result.err || 'Failed to grant specific access');
       }
     } catch (error: any) {
-      console.error("Error granting specific access:", error);
+      console.error('Error granting specific access:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }

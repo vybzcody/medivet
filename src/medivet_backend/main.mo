@@ -74,6 +74,9 @@ public type UserPermission = {
   grantedBy: Principal;
 };
 
+// Profile permissions reuse the same structure as UserPermission
+public type ProfilePermission = UserPermission;
+
 public type HealthRecord = {
   id: Nat;
   owner: Principal;
@@ -108,11 +111,15 @@ private stable var recordsStable: [(Nat, HealthRecord)] = [];
 private stable var logsStable: [(Nat, AccessLog)] = [];
 private stable var nextRecordId: Nat = 0;
 private stable var nextLogId: Nat = 0;
+// Profile permissions stable storage: owner -> list of profile permissions granted to others
+private stable var profilePermsStable: [(Principal, [ProfilePermission])] = [];
 
 // -------------------- In-Memory Maps --------------------
 private transient var users = HashMap.HashMap<Principal, User>(0, Principal.equal, Principal.hash);
 private transient var records = HashMap.HashMap<Nat, HealthRecord>(0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
 private transient var logs = HashMap.HashMap<Nat, AccessLog>(0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
+// Owner -> profile permissions granted to others
+private transient var profilePermissionsByOwner = HashMap.HashMap<Principal, [ProfilePermission]>(0, Principal.equal, Principal.hash);
 
 
 // -------------------- Helpers --------------------
@@ -693,20 +700,155 @@ public shared func fromNat(len : Nat, n : Nat) : async [Nat8] {
 //   };
 // };
 
+// -------------------- Profile Permissions (Profile-level sharing) --------------------
+// Grant profile permissions from the caller (must be a patient) to a target user
+public shared ({ caller }) func grant_profile_permission(
+  user_principal: Principal,
+  permissions: [PermissionType],
+  expiryTimestamp: ?Int
+): async Result<()> {
+  // Caller must be a registered patient
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  switch (require(u.role == #Patient, "only patient can grant profile permissions")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+
+  switch (require(permissions.size() > 0, "permissions cannot be empty")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+
+  let now = Time.now();
+  let expiryNs = switch (expiryTimestamp) { case (?ms) ?(Int.abs(ms) * 1_000_000); case null null; };
+  switch (expiryNs) {
+    case (?e) { switch (require(e > now, "expiry date must be in the future")) { case (#err(msg)) { return #err(msg) }; case (#ok()) {} } };
+    case null {};
+  };
+
+  let newPerm: ProfilePermission = {
+    user = user_principal;
+    permissions = permissions;
+    grantedAt = now;
+    expiresAt = expiryNs;
+    grantedBy = caller;
+  };
+
+  let existing = switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
+  let filtered = Array.filter(existing, func(p: ProfilePermission): Bool { p.user != user_principal });
+  let updated = Array.append(filtered, [newPerm]);
+  profilePermissionsByOwner.put(caller, updated);
+  #ok(())
+};
+
+public shared ({ caller }) func get_profile_permissions(): async [ProfilePermission] {
+  switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
+};
+
+public shared ({ caller }) func revoke_profile_permission(user_principal: Principal): async Result<()> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  switch (require(u.role == #Patient, "only patient can revoke profile permissions")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  let existing = switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
+  let filtered = Array.filter(existing, func(p: ProfilePermission): Bool { p.user != user_principal });
+  switch (require(filtered.size() != existing.size(), "no permissions found for user")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  profilePermissionsByOwner.put(caller, filtered);
+  #ok(())
+};
+
+public shared ({ caller }) func has_any_profile_permissions(): async Bool {
+  switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr.size() > 0; case null false };
+};
+
+public shared ({ caller }) func check_profile_permission(user_principal: Principal, permission: PermissionType): async Bool {
+  let perms = switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
+  let now = Time.now();
+  let has = Array.find(perms, func(p: ProfilePermission): Bool {
+    p.user == user_principal and Array.find(p.permissions, func(x: PermissionType): Bool { x == permission }) != null and
+    (switch (p.expiresAt) { case null true; case (?e) e > now })
+  });
+  switch (has) { case null false; case (?_) true };
+};
+
+// For providers: fetch another patient's profile filtered by permissions granted to the caller
+public shared ({ caller }) func get_patient_profile_with_permissions(patient_principal: Principal): async Result<{
+  fullName: ?Text;
+  dob: ?Text;
+  contact: ?Text;
+  emergency: ?Text;
+  medicalHistory: ?Text;
+  allergies: ?Text;
+  medications: ?Text;
+}> {
+  // Ensure target user exists and is a patient
+  let target = switch (_getUser(patient_principal)) { case (#ok(u)) u; case (#err(e)) return #err("patient not found: " # e) };
+  switch (require(target.role == #Patient, "target is not a patient")) { case (#err(msg)) { return #err(msg) }; case (#ok()) {} };
+
+  // Must have existing profile
+  let profile = switch (target.profile) { case (?#Patient(p)) p; case _ return #err("no patient profile found") };
+
+  // Find permissions granted by target to caller
+  let perms = switch (profilePermissionsByOwner.get(patient_principal)) { case (?arr) arr; case null [] };
+  let now = Time.now();
+  let granted = Array.find(perms, func(p: ProfilePermission): Bool { p.user == caller and (switch (p.expiresAt) { case null true; case (?e) e > now }) });
+  switch (granted) {
+    case null { return #err("no permissions granted") };
+    case (?(p)) {
+      // Helper to check if specific permission exists
+      let has = func(pt: PermissionType): Bool { Array.find(p.permissions, func(x: PermissionType): Bool { x == pt }) != null };
+      #ok({
+        fullName = if (has(#ReadBasicInfo)) ?profile.fullName else null;
+        dob = if (has(#ReadBasicInfo)) ?profile.dob else null;
+        contact = if (has(#ReadBasicInfo)) ?profile.contact else null;
+        emergency = if (has(#EmergencyAccess)) ?profile.emergency else null;
+        medicalHistory = if (has(#ReadMedicalHistory)) profile.medicalHistory else null;
+        allergies = if (has(#ReadAllergies)) profile.allergies else null;
+        medications = if (has(#ReadMedications)) profile.medications else null;
+      })
+    }
+  }
+};
+
+// For providers: list patients who granted me profile permissions
+public shared ({ caller }) func get_permissions_granted_to_me(): async [(Text, [ProfilePermission])] {
+  var results: [(Text, [ProfilePermission])] = [];
+  for ((owner, perms) in profilePermissionsByOwner.entries()) {
+    let now = Time.now();
+    let mine = Array.filter(perms, func(p: ProfilePermission): Bool { p.user == caller and (switch (p.expiresAt) { case null true; case (?e) e > now }) });
+    if (mine.size() > 0) {
+      results := Array.append(results, [(Principal.toText(owner), mine)]);
+    };
+  };
+  results
+};
+
+// Compatibility helper for frontend store
+public shared ({ caller }) func get_user_access_logs(): async [AccessLog] {
+  switch (await getAccessLogs()) { case (#ok(logs)) logs; case (#err(_)) [] };
+};
+
 // -------------------- Upgrade Hooks --------------------
 system func preupgrade() {
   usersStable := Iter.toArray(users.entries());
   recordsStable := Iter.toArray(records.entries());
   logsStable := Iter.toArray(logs.entries());
+  profilePermsStable := Iter.toArray(profilePermissionsByOwner.entries());
 };
 
 system func postupgrade() {
   users := HashMap.fromIter<Principal, User>(usersStable.vals(), 0, Principal.equal, Principal.hash);
   records := HashMap.fromIter<Nat, HealthRecord>(recordsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
   logs := HashMap.fromIter<Nat, AccessLog>(logsStable.vals(), 0, Nat.equal, func(n: Nat): Nat32 { Nat32.fromNat(n % (2**32 - 1)) });
+  profilePermissionsByOwner := HashMap.fromIter<Principal, [ProfilePermission]>(profilePermsStable.vals(), 0, Principal.equal, Principal.hash);
   usersStable := [];
   recordsStable := [];
   logsStable := [];
+  profilePermsStable := [];
 };
 
 };

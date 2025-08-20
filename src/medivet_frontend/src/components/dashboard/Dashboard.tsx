@@ -1,8 +1,6 @@
 import React from 'react';
 import { UserRoleValue } from '../../types';
 import useAuthStore from '../../stores/useAuthStore';
-import PatientDashboard from './PatientDashboard';
-import ProviderDashboard from './ProviderDashboard';
 import EnhancedPatientDashboard from './EnhancedPatientDashboard';
 import EnhancedProviderDashboard from './EnhancedProviderDashboard';
 import EnhancedAdminDashboard from './EnhancedAdminDashboard';

@@ -423,7 +423,8 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       const { actor } = await createAuthenticatedActor(identity);
       
       // Convert expiry date to nanoseconds if provided
-      const expiryTime = expiresAt ? [BigInt(new Date(expiresAt).getTime()) * BigInt(1000000)] : [];
+      // Backend expects ms and converts to ns internally
+      const expiryTime = expiresAt ? [BigInt(new Date(expiresAt).getTime())] : [];
       
       // Convert permissions to backend variant format
       const backendPermissions = permissions.map(convertPermissionToVariant);
