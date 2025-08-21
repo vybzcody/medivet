@@ -23,6 +23,7 @@ import useProfileStore from '../../stores/useProfileStore';
 import useProviderStore from '../../stores/useProviderStore';
 import useHealthRecordStore from '../../stores/useHealthRecordStore';
 import { usePolling } from '../../hooks/usePolling';
+import TestProviderData from '../TestProviderData';
 
 const EnhancedProviderDashboard: React.FC = () => {
   const { principal } = useAuthStore();
@@ -50,6 +51,7 @@ const EnhancedProviderDashboard: React.FC = () => {
 
   useEffect(() => {
     if (principal) {
+      console.log('🔄 Provider dashboard loading data for principal:', principal.toString());
       fetchHealthcareProviderProfile();
       fetchAccessLogs();
       fetchMonetizableRecords();
@@ -95,9 +97,20 @@ const EnhancedProviderDashboard: React.FC = () => {
       permissions: string[];
     }>;
 
+    console.log('🔍 Building provider records from sharedRecords:', sharedRecords.length);
+    console.log('🔍 Principal:', principal.toString());
+    
     return sharedRecords.map((r) => {
-      const entryForMe = (r.user_permissions || []).find((up: any) => up.user === principal.toString());
+      console.log('🔍 Processing record:', r.id, 'user_permissions:', r.user_permissions);
+      const entryForMe = (r.user_permissions || []).find((up: any) => {
+        const userMatch = up.user === principal.toString();
+        console.log('🔍 Checking permission:', up.user, 'vs', principal.toString(), 'match:', userMatch);
+        return userMatch;
+      });
+      
       const perms: string[] = entryForMe?.permissions || [];
+      console.log('🔍 Found permissions for record', r.id, ':', perms);
+      
       // Determine status by expiry if present
       let status: 'Active' | 'Expired' | 'Revoked' | 'Unknown' = 'Unknown';
       if (entryForMe?.expires_at) {
@@ -106,7 +119,8 @@ const EnhancedProviderDashboard: React.FC = () => {
       } else if (perms.length > 0) {
         status = 'Active';
       }
-      return {
+      
+      const providerRecord = {
         id: r.id,
         patientPrincipal: r.owner,
         title: r.title,
@@ -115,7 +129,13 @@ const EnhancedProviderDashboard: React.FC = () => {
         status,
         permissions: perms,
       };
-    }).filter((x) => x.permissions.length > 0);
+      console.log('🔍 Provider record created:', providerRecord);
+      return providerRecord;
+    }).filter((x) => {
+      const hasPerms = x.permissions.length > 0;
+      console.log('🔍 Filtering record', x.id, 'has permissions:', hasPerms);
+      return hasPerms;
+    });
   }, [sharedRecords, principal]);
 
   const filteredRecords = useMemo(() => {
@@ -128,6 +148,18 @@ const EnhancedProviderDashboard: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
   }, [providerRecords, searchTerm, statusFilter]);
+  
+  // Debug useEffect to track data changes (after providerRecords is declared)
+  useEffect(() => {
+    console.log('📊 Provider dashboard data updated:');
+    console.log('  - sharedRecords:', sharedRecords.length);
+    console.log('  - accessLogs:', accessLogs.length);
+    console.log('  - monetizableRecords:', monetizableRecords.length);
+    console.log('  - providerRecords:', providerRecords.length);
+    console.log('  - filteredRecords:', filteredRecords.length);
+    console.log('  - recordsLoading:', recordsLoading);
+    console.log('  - providerLoading:', providerLoading);
+  }, [sharedRecords, accessLogs, monetizableRecords, providerRecords, filteredRecords, recordsLoading, providerLoading]);
 
   if (profileLoading) {
     return (
@@ -228,6 +260,40 @@ const EnhancedProviderDashboard: React.FC = () => {
           </div>
         </Card>
       </div>
+
+      {/* Test Component */}
+      <TestProviderData />
+      
+      {/* Debug Information (temporary) */}
+      <Card className="p-6 bg-yellow-50 border-yellow-200">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-yellow-800 flex items-center">
+            🔍 Debug Information
+          </h2>
+          <p className="text-yellow-700 text-sm mt-1">
+            This section helps debug the provider dashboard data flow
+          </p>
+        </div>
+        
+        <div className="space-y-2 text-sm">
+          <div><strong>Principal:</strong> {principal?.toString() || 'Not authenticated'}</div>
+          <div><strong>Provider Profile:</strong> {healthcareProviderProfile ? '✅ Loaded' : '❌ Missing'}</div>
+          <div><strong>Raw Shared Records:</strong> {sharedRecords.length}</div>
+          <div><strong>Provider Records (filtered):</strong> {providerRecords.length}</div>
+          <div><strong>Access Logs:</strong> {accessLogs.length}</div>
+          <div><strong>Records Loading:</strong> {recordsLoading ? '⏳' : '✅'}</div>
+          <div><strong>Provider Loading:</strong> {providerLoading ? '⏳' : '✅'}</div>
+          
+          {sharedRecords.length > 0 && (
+            <div className="mt-4">
+              <strong>Sample Record Data:</strong>
+              <pre className="text-xs bg-white p-2 rounded border mt-1 overflow-x-auto">
+                {JSON.stringify(sharedRecords[0], null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Search and Filter */}
       <Card className="p-6">
@@ -334,12 +400,22 @@ const EnhancedProviderDashboard: React.FC = () => {
             <div className="text-center py-12">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No records found</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mb-4">
                 {searchTerm || statusFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria'
                   : 'No patient records have been shared with you yet'
                 }
               </p>
+              {sharedRecords.length === 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <p className="text-blue-800 text-sm">
+                    <strong>For testing:</strong> To see shared records, a patient needs to share a record with your provider principal:
+                  </p>
+                  <code className="text-xs bg-blue-100 px-2 py-1 rounded mt-2 block">
+                    {principal?.toString() || 'Not authenticated'}
+                  </code>
+                </div>
+              )}
             </div>
           )}
         </div>

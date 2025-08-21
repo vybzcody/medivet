@@ -57,14 +57,15 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
         throw new Error('User not authenticated');
       }
 
-      // Convert Uint8Array to string
-      const encryptedContentString = new TextDecoder().decode(record.encrypted_content);
+      // The encrypted_content is already a Uint8Array from the backend
+      // We need to convert it to base64 for the CryptoService which expects base64 strings
+      const encryptedContentBase64 = CryptoService.arrayBufferToBase64(record.encrypted_content);
       
       // Decrypt the content
       const decryptedContent = await CryptoService.decryptWithRecordKey(
         BigInt(record.id),
-        principal,
-        encryptedContentString
+        record.owner, // Use record.owner instead of current user principal
+        encryptedContentBase64
       );
 
       // Return record with decrypted content (we'll add a content field for display)
@@ -267,13 +268,50 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
       const result = await actor.getSharedHealthRecords();
       
       if ('ok' in result) {
+        console.log('🚀 Raw backend shared records result:', result.ok.length, 'records');
+        
         // Transform backend records to frontend format without decrypting
         const transformedRecords = result.ok.map((record: any) => {
+          console.log('🔄 Transforming backend record:', record.id, 'userPermissions:', record.userPermissions);
+          
           // Safely convert timestamps
           const createdAtDate = safeTimestampToDate(record.createdAt);
           const modifiedAtDate = safeTimestampToDate(record.modifiedAt);
           
-          return {
+          // Transform userPermissions from backend format
+          const transformedPermissions = (record.userPermissions || []).map((perm: any) => {
+            console.log('🔄 Transforming permission:', perm);
+            
+            // Extract permission names from backend variant format
+            const permissionNames = (perm.permissions || []).map((p: any) => {
+              // Backend sends permissions as variants like { ReadBasicInfo: null }
+              const key = Object.keys(p)[0];
+              // Convert to frontend enum format
+              switch (key) {
+                case 'ReadBasicInfo': return 'READ_BASIC_INFO';
+                case 'ReadMedicalHistory': return 'READ_MEDICAL_HISTORY';
+                case 'ReadMedications': return 'READ_MEDICATIONS';
+                case 'ReadAllergies': return 'READ_ALLERGIES';
+                case 'ReadLabResults': return 'READ_LAB_RESULTS';
+                case 'ReadImaging': return 'READ_IMAGING';
+                case 'ReadMentalHealth': return 'READ_MENTAL_HEALTH';
+                case 'WriteNotes': return 'WRITE_NOTES';
+                case 'WritePrescriptions': return 'WRITE_PRESCRIPTIONS';
+                case 'EmergencyAccess': return 'EMERGENCY_ACCESS';
+                default: return key;
+              }
+            });
+            
+            return {
+              user: perm.user.toString(),
+              permissions: permissionNames,
+              granted_at: Number(perm.grantedAt),
+              expires_at: perm.expiresAt ? Number(perm.expiresAt) : null,
+              granted_by: perm.grantedBy.toString()
+            };
+          });
+          
+          const transformedRecord = {
             id: Number(record.id),
             title: record.title,
             category: record.category,
@@ -282,12 +320,15 @@ const useHealthRecordStore = create<HealthRecordState>((set, get) => ({
             record_date: createdAtDate ? createdAtDate.getTime() : Date.now(),
             encrypted_content: new Uint8Array(record.encryptedBlob),
             attachment_id: record.attachment ? Number(record.attachment) : null,
-            user_permissions: record.userPermissions || [], // Transform permissions
+            user_permissions: transformedPermissions,
             access_count: Number(record.accessCount),
             created_at: createdAtDate ? createdAtDate.getTime() : Date.now(),
             updated_at: modifiedAtDate ? modifiedAtDate.getTime() : Date.now(),
             owner: record.owner.toString()
           };
+          
+          console.log('✅ Transformed record:', transformedRecord.id, 'permissions:', transformedRecord.user_permissions);
+          return transformedRecord;
         });
         
         set({ 
@@ -627,14 +668,14 @@ const mapPermission = (p: string) => {
         throw new Error('User not authenticated');
       }
       
-      // Convert the Uint8Array to a string for decryption
-      const encryptedContent = new TextDecoder().decode(record.encrypted_content);
+      // Convert the Uint8Array to base64 string for decryption
+      const encryptedContentBase64 = CryptoService.arrayBufferToBase64(record.encrypted_content);
       
-      // Decrypt the content
+      // Decrypt the content using the record owner
       const decryptedContent = await CryptoService.decryptWithRecordKey(
         BigInt(record.id), 
-        principal, 
-        encryptedContent
+        record.owner, // Use record.owner instead of current principal
+        encryptedContentBase64
       );
       
       set({ isLoading: false });

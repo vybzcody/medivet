@@ -44,10 +44,12 @@ const EncryptedRecordCard: React.FC<EncryptedRecordCardProps> = ({
       }
 
       // Then decrypt the content
+      // Convert the Uint8Array to base64 for the CryptoService
+      const encryptedContentBase64 = CryptoService.arrayBufferToBase64(record.encrypted_content);
       const decrypted = await CryptoService.decryptWithRecordKey(
         BigInt(record.id),
         record.owner,
-        new TextDecoder().decode(record.encrypted_content)
+        encryptedContentBase64
       );
 
       setDecryptedContent(decrypted);

@@ -39,22 +39,29 @@ class PollingService {
           return;
         }
 
-        const { fetchRecords, fetchSharedRecords } = useHealthRecordStore.getState();
+        const { fetchRecords, fetchSharedRecordsWithoutDecryption } = useHealthRecordStore.getState();
         const { userRole } = useAuthStore.getState();
         
-        // Always fetch patient records
-        const promises = [
-          fetchRecords().catch(err => console.warn('Failed to fetch records:', err))
-        ];
+        const promises = [];
         
-        // Only fetch shared records for healthcare providers
-        if (userRole === 'HEALTHCARE_PROVIDER') {
+        // Patients fetch their own records
+        if (userRole === 'PATIENT') {
           promises.push(
-            fetchSharedRecords().catch(err => console.warn('Failed to fetch shared records:', err))
+            fetchRecords().catch(err => console.warn('Failed to fetch patient records:', err))
           );
         }
         
-        await Promise.all(promises);
+        // Healthcare providers fetch shared records only
+        if (userRole === 'HEALTHCARE_PROVIDER') {
+          promises.push(
+            fetchSharedRecordsWithoutDecryption().catch(err => console.warn('Failed to fetch shared records:', err))
+          );
+        }
+        
+        // Only proceed if we have promises to execute
+        if (promises.length > 0) {
+          await Promise.all(promises);
+        }
         
         console.log('Health records polling: Data refreshed');
       } catch (error) {
@@ -160,15 +167,22 @@ class PollingService {
       
       console.log('Triggering manual refresh...');
       
-      // Always fetch patient records
-      const promises = [fetchRecords()];
+      const promises = [];
       
-      // Only fetch shared records for healthcare providers
+      // Patients fetch their own records
+      if (userRole === 'PATIENT') {
+        promises.push(fetchRecords());
+      }
+      
+      // Healthcare providers fetch shared records only
       if (userRole === 'HEALTHCARE_PROVIDER') {
         promises.push(fetchSharedRecordsWithoutDecryption());
       }
       
-      await Promise.all(promises);
+      // Only proceed if we have promises to execute
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
       
       // Dispatch events for components that need to know about the refresh
       window.dispatchEvent(new CustomEvent('refreshHealthRecords'));

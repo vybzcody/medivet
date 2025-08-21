@@ -66,12 +66,42 @@ public type PermissionType = {
   #EmergencyAccess;      // emergency access override
 };
 
+// Enhanced sharing context for granular permissions
+public type SharingContext = {
+  #Consultation: { appointmentId: ?Nat; purpose: Text };
+  #Emergency: { severity: Text; contactInfo: Text };
+  #SecondOpinion: { requestingProvider: Principal };
+  #Research: { studyId: Text; consent: Bool };
+  #Referral: { referringProvider: Principal; targetSpecialty: Text };
+  #General: { purpose: Text };
+};
+
+// Enhanced UserPermission with granular control and context
 public type UserPermission = {
   user: Principal;
   permissions: [PermissionType];
   grantedAt: Time.Time;
   expiresAt: ?Time.Time;
   grantedBy: Principal;
+  // New enhanced fields for granular sharing
+  context: ?SharingContext;
+  purpose: ?Text;
+  canReshare: Bool;
+  encryptedRecordKey: ?Blob; // Encrypted record key for cross-user decryption
+};
+
+// Permission request from providers
+public type PermissionRequest = {
+  id: Nat;
+  requester: Principal;
+  patient: Principal;
+  requestedPermissions: [PermissionType];
+  context: SharingContext;
+  purpose: Text;
+  requestedAt: Time.Time;
+  status: { #Pending; #Approved; #Denied; #Expired };
+  patientResponse: ?Text;
+  respondedAt: ?Time.Time;
 };
 
 // Profile permissions reuse the same structure as UserPermission
@@ -471,6 +501,11 @@ public shared ({ caller }) func grantSpecificAccess(
     grantedAt = now;
     expiresAt = expiryNs;
     grantedBy = caller;
+    // Enhanced fields with defaults for backward compatibility
+    context = ?#General({ purpose = "Medical record access" });
+    purpose = ?"Healthcare provider access";
+    canReshare = false;
+    encryptedRecordKey = null; // TODO: Implement cross-user encryption
   };
   
   // Filter out any existing permissions for this user and add the new one
@@ -661,6 +696,70 @@ public shared ({ caller }) func encrypted_symmetric_key_for_user(
   Hex.encode(Blob.toArray(encrypted_key))
 };
 
+// Cross-user encryption key derivation for shared records
+// Allows providers to decrypt patient records they have permissions for
+public shared ({ caller }) func encrypted_symmetric_key_for_shared_record(
+  recordId: Nat,
+  recordOwner: Principal,
+  transport_public_key: Blob
+): async Result<Text> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  // Only providers can request cross-user decryption keys
+  switch (require(u.role == #Provider, "only providers can access shared record keys")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  // Validate record exists
+  let rec = switch (records.get(recordId)) { 
+    case (?r) r; 
+    case null return #err("record not found"); 
+  };
+  
+  // Validate record ownership matches parameter
+  switch (require(rec.owner == recordOwner, "owner mismatch")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Check if caller has valid permissions for this record
+  let hasPermission = Array.find(rec.userPermissions, func(perm: UserPermission): Bool {
+    perm.user == caller and
+    (switch (perm.expiresAt) {
+      case (?expiry) expiry > now;
+      case null true;
+    })
+  });
+  
+  switch (hasPermission) {
+    case null { return #err("no valid permissions for this record") };
+    case (?_) {
+      // Create a composite input that includes both the record owner and the record ID
+      // This ensures each record has a unique key while allowing cross-user access
+      let recordOwnerBytes = Principal.toBlob(recordOwner);
+      let recordIdBytes = Blob.fromArray(await fromNat(8, recordId));
+      let input = Blob.fromArray(
+        Array.append(
+          Blob.toArray(recordOwnerBytes),
+          Blob.toArray(recordIdBytes)
+        )
+      );
+      
+      let { encrypted_key } = await (with cycles = 26_153_846_153) management_canister.vetkd_derive_key({
+        input;
+        context = Text.encodeUtf8("medivet_shared_record_encryption");
+        key_id = { curve = #bls12_381_g2; name = "test_key_1" };
+        transport_public_key;
+      });
+      
+      #ok(Hex.encode(Blob.toArray(encrypted_key)))
+    }
+  }
+};
+
 // public func fromNat(len : Nat, n : Nat) : [Nat8] {
 //     let ith_byte = func(i : Nat) : Nat8 {
 //         assert(i < len);
@@ -747,6 +846,11 @@ public shared ({ caller }) func grant_profile_permission(
     grantedAt = now;
     expiresAt = expiryNs;
     grantedBy = caller;
+    // Enhanced fields for profile permissions
+    context = ?#General({ purpose = "Patient profile access" });
+    purpose = ?"Healthcare provider profile access";
+    canReshare = false;
+    encryptedRecordKey = null; // Not needed for profile permissions
   };
 
   let existing = switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
@@ -845,6 +949,430 @@ public shared ({ caller }) func get_permissions_granted_to_me(): async [(Text, [
 // Compatibility helper for frontend store
 public shared ({ caller }) func get_user_access_logs(): async [AccessLog] {
   switch (await getAccessLogs()) { case (#ok(logs)) logs; case (#err(_)) [] };
+};
+
+// -------------------- Enhanced Granular Sharing APIs --------------------
+
+// Enhanced grant access with context and purpose
+public shared ({ caller }) func grantAccessWithContext(
+  recordId: Nat,
+  userPrincipal: Principal,
+  permissions: [PermissionType],
+  context: SharingContext,
+  purpose: Text,
+  expiryTimestamp: ?Int,
+  canReshare: Bool
+): async Result<()> {
+  // Validate record exists and caller owns it
+  let rec = switch (records.get(recordId)) { 
+    case (?r) r; 
+    case null return #err("record not found"); 
+  };
+  
+  switch (require(rec.owner == caller, "only record owner can grant access")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  // Validate target user exists
+  let _ = switch (_getUser(userPrincipal)) { 
+    case (#ok(u)) u; 
+    case (#err(e)) return #err("target user not found: " # e); 
+  };
+  
+  // Validate permissions array is not empty
+  switch (require(permissions.size() > 0, "permissions cannot be empty")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Convert expiry timestamp from milliseconds to nanoseconds if provided
+  let expiryNs = switch (expiryTimestamp) {
+    case (?ms) ?(Int.abs(ms) * 1_000_000); // Convert ms to ns
+    case null null;
+  };
+  
+  // Validate expiry is in the future if provided
+  switch (expiryNs) {
+    case (?expiry) {
+      switch (require(expiry > now, "expiry date must be in the future")) {
+        case (#err(msg)) { return #err(msg); };
+        case (#ok()) {};
+      };
+    };
+    case null {};
+  };
+  
+  let newPermission: UserPermission = {
+    user = userPrincipal;
+    permissions = permissions;
+    grantedAt = now;
+    expiresAt = expiryNs;
+    grantedBy = caller;
+    context = ?context;
+    purpose = ?purpose;
+    canReshare = canReshare;
+    encryptedRecordKey = null; // TODO: Implement cross-user encryption
+  };
+  
+  // Filter out any existing permissions for this user and add the new one
+  let updatedPermissions = Array.filter(rec.userPermissions, func(p: UserPermission): Bool {
+    p.user != userPrincipal
+  });
+  
+  let finalPermissions = Array.append(updatedPermissions, [newPermission]);
+  
+  let updatedRec = {
+    rec with
+    userPermissions = finalPermissions;
+    modifiedAt = now;
+  };
+  
+  records.put(recordId, updatedRec);
+  #ok(());
+};
+
+// Get detailed sharing summary for providers
+public shared ({ caller }) func getDetailedSharingSummary(): async Result<{
+  sharedRecords: [{
+    recordId: Nat;
+    title: Text;
+    category: Text;
+    owner: Text;
+    permissions: [PermissionType];
+    context: ?SharingContext;
+    purpose: ?Text;
+    grantedAt: Int;
+    expiresAt: ?Int;
+    canReshare: Bool;
+  }];
+  sharedProfiles: [{
+    patientPrincipal: Text;
+    permissions: [PermissionType];
+    context: ?SharingContext;
+    purpose: ?Text;
+    grantedAt: Int;
+    expiresAt: ?Int;
+  }];
+}> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "only providers can access sharing summary")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Get shared records
+  let recordDetails = Array.map(
+    Array.filter(
+      Iter.toArray(records.vals()),
+      func(record: HealthRecord): Bool {
+        Array.find(record.userPermissions, func(perm: UserPermission): Bool {
+          perm.user == caller and
+          (switch (perm.expiresAt) {
+            case (?expiry) expiry > now;
+            case null true;
+          })
+        }) != null
+      }
+    ),
+    func(record: HealthRecord): {
+      recordId: Nat;
+      title: Text;
+      category: Text;
+      owner: Text;
+      permissions: [PermissionType];
+      context: ?SharingContext;
+      purpose: ?Text;
+      grantedAt: Int;
+      expiresAt: ?Int;
+      canReshare: Bool;
+    } {
+      let myPerm = Array.find(record.userPermissions, func(perm: UserPermission): Bool {
+        perm.user == caller
+      });
+      switch (myPerm) {
+        case (?perm) {
+          {
+            recordId = record.id;
+            title = record.title;
+            category = record.category;
+            owner = Principal.toText(record.owner);
+            permissions = perm.permissions;
+            context = perm.context;
+            purpose = perm.purpose;
+            grantedAt = perm.grantedAt;
+            expiresAt = perm.expiresAt;
+            canReshare = perm.canReshare;
+          }
+        };
+        case null {
+          // This shouldn't happen due to the filter above
+          {
+            recordId = record.id;
+            title = record.title;
+            category = record.category;
+            owner = Principal.toText(record.owner);
+            permissions = [];
+            context = null;
+            purpose = null;
+            grantedAt = 0;
+            expiresAt = null;
+            canReshare = false;
+          }
+        };
+      }
+    }
+  );
+  
+  // Get shared profiles
+  var profileDetails: [{
+    patientPrincipal: Text;
+    permissions: [PermissionType];
+    context: ?SharingContext;
+    purpose: ?Text;
+    grantedAt: Int;
+    expiresAt: ?Int;
+  }] = [];
+  
+  for ((owner, perms) in profilePermissionsByOwner.entries()) {
+    let mine = Array.filter(perms, func(p: ProfilePermission): Bool { 
+      p.user == caller and (switch (p.expiresAt) { case null true; case (?e) e > now }) 
+    });
+    
+    for (perm in mine.vals()) {
+      profileDetails := Array.append(profileDetails, [{
+        patientPrincipal = Principal.toText(owner);
+        permissions = perm.permissions;
+        context = perm.context;
+        purpose = perm.purpose;
+        grantedAt = perm.grantedAt;
+        expiresAt = perm.expiresAt;
+      }]);
+    };
+  };
+  
+  #ok({
+    sharedRecords = recordDetails;
+    sharedProfiles = profileDetails;
+  });
+};
+
+// Enhanced profile permission granting with context
+public shared ({ caller }) func grant_profile_permission_with_context(
+  user_principal: Principal,
+  permissions: [PermissionType],
+  context: SharingContext,
+  purpose: Text,
+  expiryTimestamp: ?Int,
+  canReshare: Bool
+): async Result<()> {
+  // Caller must be a registered patient
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  switch (require(u.role == #Patient, "only patient can grant profile permissions")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+
+  switch (require(permissions.size() > 0, "permissions cannot be empty")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+
+  let now = Time.now();
+  let expiryNs = switch (expiryTimestamp) { case (?ms) ?(Int.abs(ms) * 1_000_000); case null null; };
+  switch (expiryNs) {
+    case (?e) { switch (require(e > now, "expiry date must be in the future")) { case (#err(msg)) { return #err(msg) }; case (#ok()) {} } };
+    case null {};
+  };
+
+  let newPerm: ProfilePermission = {
+    user = user_principal;
+    permissions = permissions;
+    grantedAt = now;
+    expiresAt = expiryNs;
+    grantedBy = caller;
+    context = ?context;
+    purpose = ?purpose;
+    canReshare = canReshare;
+    encryptedRecordKey = null;
+  };
+
+  let existing = switch (profilePermissionsByOwner.get(caller)) { case (?arr) arr; case null [] };
+  let filtered = Array.filter(existing, func(p: ProfilePermission): Bool { p.user != user_principal });
+  let updated = Array.append(filtered, [newPerm]);
+  profilePermissionsByOwner.put(caller, updated);
+  #ok(())
+};
+
+// Get all patients that have granted profile access to the calling provider
+public shared ({ caller }) func getPatientsWithSharedProfiles(): async Result<[{
+  patientPrincipal: Text;
+  patientName: ?Text;
+  permissions: [PermissionType];
+  grantedAt: Int;
+  expiresAt: ?Int;
+  context: ?SharingContext;
+  purpose: ?Text;
+}]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "only providers can access patient profiles")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  var results: [{
+    patientPrincipal: Text;
+    patientName: ?Text;
+    permissions: [PermissionType];
+    grantedAt: Int;
+    expiresAt: ?Int;
+    context: ?SharingContext;
+    purpose: ?Text;
+  }] = [];
+  
+  for ((owner, perms) in profilePermissionsByOwner.entries()) {
+    let mine = Array.filter(perms, func(p: ProfilePermission): Bool { 
+      p.user == caller and (switch (p.expiresAt) { case null true; case (?e) e > now }) 
+    });
+    
+    for (perm in mine.vals()) {
+      // Try to get patient name if we have ReadBasicInfo permission
+      let patientName = if (Array.find(perm.permissions, func(pt: PermissionType): Bool { pt == #ReadBasicInfo }) != null) {
+        switch (users.get(owner)) {
+          case (?patient) {
+            switch (patient.profile) {
+              case (?#Patient(profile)) ?profile.fullName;
+              case _ null;
+            }
+          };
+          case null null;
+        }
+      } else {
+        null
+      };
+      
+      results := Array.append(results, [{
+        patientPrincipal = Principal.toText(owner);
+        patientName = patientName;
+        permissions = perm.permissions;
+        grantedAt = perm.grantedAt;
+        expiresAt = perm.expiresAt;
+        context = perm.context;
+        purpose = perm.purpose;
+      }]);
+    };
+  };
+  
+  #ok(results);
+};
+
+// Get patients who have shared records with the calling provider
+public shared ({ caller }) func getPatientsWithSharedRecords(): async Result<[{
+  patientPrincipal: Text;
+  patientName: ?Text;
+  recordCount: Nat;
+  totalPermissions: Nat;
+  latestGrantedAt: Int;
+}]> {
+  let u = switch (_getUser(caller)) { case (#ok(u)) u; case (#err(e)) return #err(e); };
+  
+  switch (require(u.role == #Provider, "only providers can access shared records")) {
+    case (#err(msg)) { return #err(msg); };
+    case (#ok()) {};
+  };
+  
+  let now = Time.now();
+  
+  // Group records by patient
+  var patientRecordMap = HashMap.HashMap<Principal, {
+    recordCount: Nat;
+    totalPermissions: Nat;
+    latestGrantedAt: Int;
+  }>(0, Principal.equal, Principal.hash);
+  
+  for (record in records.vals()) {
+    let myPerms = Array.filter(record.userPermissions, func(perm: UserPermission): Bool {
+      perm.user == caller and
+      (switch (perm.expiresAt) {
+        case (?expiry) expiry > now;
+        case null true;
+      })
+    });
+    
+    if (myPerms.size() > 0) {
+      let defaultData = {
+        recordCount = 0;
+        totalPermissions = 0;
+        latestGrantedAt = 0;
+      };
+      let existing = switch (patientRecordMap.get(record.owner)) {
+        case (?data) data;
+        case null defaultData;
+      };
+      
+      let latestGrant = Array.foldLeft(myPerms, existing.latestGrantedAt, func(latest: Int, perm: UserPermission): Int {
+        if (perm.grantedAt > latest) perm.grantedAt else latest
+      });
+      
+      patientRecordMap.put(record.owner, {
+        existing with
+        recordCount = existing.recordCount + 1;
+        totalPermissions = existing.totalPermissions + myPerms.size();
+        latestGrantedAt = latestGrant;
+      });
+    };
+  };
+  
+  // Convert to result format
+  var results: [{
+    patientPrincipal: Text;
+    patientName: ?Text;
+    recordCount: Nat;
+    totalPermissions: Nat;
+    latestGrantedAt: Int;
+  }] = [];
+  
+  for ((patientPrincipal, data) in patientRecordMap.entries()) {
+    // Try to get patient name if they've granted us profile access
+    let patientName = switch (profilePermissionsByOwner.get(patientPrincipal)) {
+      case (?perms) {
+        let myProfilePerms = Array.filter(perms, func(p: ProfilePermission): Bool { 
+          p.user == caller and 
+          Array.find(p.permissions, func(pt: PermissionType): Bool { pt == #ReadBasicInfo }) != null and
+          (switch (p.expiresAt) { case null true; case (?e) e > now })
+        });
+        if (myProfilePerms.size() > 0) {
+          switch (users.get(patientPrincipal)) {
+            case (?patient) {
+              switch (patient.profile) {
+                case (?#Patient(profile)) ?profile.fullName;
+                case _ null;
+              }
+            };
+            case null null;
+          }
+        } else null;
+      };
+      case null null;
+    };
+    
+    results := Array.append(results, [{
+      patientPrincipal = Principal.toText(patientPrincipal);
+      patientName = patientName;
+      recordCount = data.recordCount;
+      totalPermissions = data.totalPermissions;
+      latestGrantedAt = data.latestGrantedAt;
+    }]);
+  };
+  
+  #ok(results);
 };
 
 // -------------------- Upgrade Hooks --------------------
